@@ -1,0 +1,20 @@
+{
+  "name": "quiznest",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server/proxy.js",
+    "start": "node server/proxy.js",
+    "sync-dist": "node scripts/sync-dist.mjs",
+    "clean": "node scripts/clean.mjs",
+    "build:dmg": "node scripts/build-dmg.mjs",
+    "build:android:arm64": "node scripts/build-android-arm64.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.11.0"
+  }
+}
