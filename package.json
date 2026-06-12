@@ -9,7 +9,8 @@
     "sync-dist": "node scripts/sync-dist.mjs",
     "clean": "node scripts/clean.mjs",
     "build:dmg": "node scripts/build-dmg.mjs",
-    "build:android:arm64": "node scripts/build-android-arm64.mjs"
+    "build:android:arm64": "node scripts/build-android-arm64.mjs",
+    "build:windows:exe": "scripts\\build-windows-exe.bat"
   },
   "engines": {
     "node": ">=20"
