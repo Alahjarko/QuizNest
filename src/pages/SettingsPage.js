@@ -3,7 +3,7 @@ import { backupFileName, buildLearningBackup, importLearningBackup } from "../se
 import { getSettings, saveSettings } from "../services/storage/db.js";
 import { showToast } from "../components/Toast.js";
 import { confirmAction } from "../components/Modal.js";
-import { downloadJson, readTextFile } from "../utils/file.js";
+import { downloadJson, readImageFile, readTextFile } from "../utils/file.js";
 import { escapeHtml } from "../utils/markdown.js";
 
 export async function renderSettingsPage(container, app) {
@@ -15,7 +15,7 @@ export async function renderSettingsPage(container, app) {
       <div>
         <p class="eyebrow">QuizNest AI 配置</p>
         <h1>模型设置</h1>
-        <p>配置 OpenAI-compatible Chat Completions。默认共用一套 API，也可以按出题、判题和解惑拆分模型。</p>
+        <p>配置 OpenAI-compatible Chat Completions。默认共用一套 API，也可以按笔记、出题、判题和解惑拆分模型。</p>
       </div>
     </section>
 
@@ -44,15 +44,21 @@ export async function renderSettingsPage(container, app) {
               <input name="questionModel" placeholder="qwen-plus / gpt-4.1-mini" value="${escapeHtml(settings.questionModel)}" />
             </label>
             <label>
-              <span>判题模型名称</span>
-              <input name="gradingModel" placeholder="建议支持视觉输入" value="${escapeHtml(settings.gradingModel)}" />
+              <span>笔记模型名称</span>
+              <input name="noteModel" placeholder="用于 PDF 生成 Markdown 笔记，留空则使用出题模型" value="${escapeHtml(settings.noteModel)}" />
             </label>
           </div>
           <div class="form-grid">
             <label>
+              <span>判题模型名称</span>
+              <input name="gradingModel" placeholder="建议支持视觉输入" value="${escapeHtml(settings.gradingModel)}" />
+            </label>
+            <label>
               <span>解惑模型名称（可选）</span>
               <input name="chatModel" placeholder="留空则使用出题模型" value="${escapeHtml(settings.chatModel)}" />
             </label>
+          </div>
+          <div class="form-grid">
             <label>
               <span>请求超时（毫秒）</span>
               <input name="timeoutMs" type="number" min="30000" step="10000" value="${Number(settings.timeoutMs || 180000)}" />
@@ -63,6 +69,7 @@ export async function renderSettingsPage(container, app) {
           </div>
           <div class="form-actions">
             <button class="secondary-button" type="button" data-test-role="question">测试出题模型</button>
+            <button class="secondary-button" type="button" data-test-role="note">测试笔记模型</button>
             <button class="secondary-button" type="button" data-test-role="grading">测试判题模型</button>
             <button class="secondary-button" type="button" data-test-role="chat">测试解惑</button>
           </div>
@@ -71,9 +78,42 @@ export async function renderSettingsPage(container, app) {
 
       <div data-separate-configs class="separate-configs ${settings.useSeparateConfigs ? "" : "hidden"}">
         ${renderRoleConfig("question", "出题模型配置", "负责生成题目、解析、错题讲解和薄弱点分析。", settings.questionConfig)}
+        ${renderRoleConfig("note", "笔记模型配置", "负责把 PDF 文本整理成 Markdown 笔记，并生成或抽取例题与答案。", settings.noteConfig)}
         ${renderRoleConfig("grading", "判题模型配置", "负责判断文字和图片答案。图片答案会默认以视觉输入发送，请选择实际支持图片的模型。", settings.gradingConfig)}
         ${renderRoleConfig("chat", "解惑对话配置（可选）", "留空时使用出题模型配置。", settings.chatConfig)}
       </div>
+
+      <section class="settings-section appearance-section">
+        <div class="section-heading inline">
+          <div>
+            <p class="eyebrow">外观</p>
+            <h2>首页封面</h2>
+            <p>选择一张本地图片作为首页顶部背景。首页会自动叠加暗色遮罩，让标题和按钮保持可读。</p>
+          </div>
+        </div>
+        <div class="hero-background-control">
+          <div class="hero-background-preview ${settings.homeHeroImageDataUrl ? "has-image" : ""}" data-hero-image-preview>
+            <div>
+              <span>QuizNest Workspace</span>
+              <strong>QuizNest</strong>
+              <small>首页封面预览</small>
+            </div>
+          </div>
+          <div class="hero-background-panel">
+            <div class="form-actions">
+              <label class="secondary-button file-button">
+                选择背景图
+                <input data-hero-image-input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" hidden />
+              </label>
+              <button class="secondary-button" data-remove-hero-image type="button" ${settings.homeHeroImageDataUrl ? "" : "disabled"}>移除图片</button>
+            </div>
+            <input name="homeHeroImageDataUrl" type="hidden" value="${escapeHtml(settings.homeHeroImageDataUrl)}" />
+            <input name="homeHeroImageName" type="hidden" value="${escapeHtml(settings.homeHeroImageName)}" />
+            <p class="hint" data-hero-image-name>${settings.homeHeroImageName ? `当前图片：${escapeHtml(settings.homeHeroImageName)}` : "尚未设置首页封面图片。"}</p>
+            <div class="status-box">建议使用横向图片。图片只保存在本机设置中，不会被上传到模型或导出到学习数据备份。</div>
+          </div>
+        </div>
+      </section>
 
       <div class="form-actions sticky-actions">
         <button class="primary-button" type="submit">保存设置</button>
@@ -195,6 +235,54 @@ function bindSettingsInteractions(container, form) {
       }
     });
   });
+
+  bindHeroImageSettings(container, form);
+}
+
+function bindHeroImageSettings(container, form) {
+  const fileInput = container.querySelector("[data-hero-image-input]");
+  const removeButton = container.querySelector("[data-remove-hero-image]");
+  const preview = container.querySelector("[data-hero-image-preview]");
+  const nameLabel = container.querySelector("[data-hero-image-name]");
+  const dataInput = form.elements.homeHeroImageDataUrl;
+  const nameInput = form.elements.homeHeroImageName;
+
+  const updatePreview = () => {
+    const dataUrl = String(dataInput.value || "");
+    const imageName = String(nameInput.value || "");
+    preview.classList.toggle("has-image", Boolean(dataUrl));
+    preview.style.setProperty("--settings-hero-bg", dataUrl ? `url("${dataUrl.replaceAll('"', '\\"')}")` : "none");
+    removeButton.disabled = !dataUrl;
+    nameLabel.textContent = imageName ? `当前图片：${imageName}` : "尚未设置首页封面图片。";
+  };
+
+  updatePreview();
+
+  fileInput?.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    try {
+      if (file.type === "image/svg+xml") {
+        throw new Error("请上传 PNG、JPG、WebP、GIF 或 AVIF 图片");
+      }
+      const image = await readImageFile(file);
+      dataInput.value = image.dataUrl;
+      nameInput.value = image.name;
+      updatePreview();
+      showToast("首页封面已选择，保存设置后生效", "success");
+    } catch (error) {
+      showToast(error.message, "error");
+    }
+  });
+
+  removeButton?.addEventListener("click", () => {
+    dataInput.value = "";
+    nameInput.value = "";
+    updatePreview();
+    showToast("首页封面已移除，保存设置后生效", "success");
+  });
 }
 
 function renderRoleConfig(role, title, description, config) {
@@ -239,8 +327,11 @@ function readSettingsForm(form) {
   const commonBaseUrl = String(formData.get("commonBaseUrl") || "").trim();
   const commonApiKey = String(formData.get("commonApiKey") || "").trim();
   const questionModel = String(formData.get("questionModel") || "").trim();
+  const noteModel = String(formData.get("noteModel") || "").trim();
   const gradingModel = String(formData.get("gradingModel") || "").trim();
   const chatModel = String(formData.get("chatModel") || "").trim();
+  const homeHeroImageDataUrl = String(formData.get("homeHeroImageDataUrl") || "");
+  const homeHeroImageName = String(formData.get("homeHeroImageName") || "").trim();
 
   const settings = {
     useSeparateConfigs,
@@ -249,11 +340,15 @@ function readSettingsForm(form) {
     baseUrl: commonBaseUrl,
     apiKey: commonApiKey,
     questionModel,
+    noteModel,
     gradingModel,
     chatModel,
+    homeHeroImageDataUrl,
+    homeHeroImageName,
     gradingSupportsVision: true,
     timeoutMs: Number(formData.get("timeoutMs") || 180000),
     questionConfig: readRoleConfig(formData, "question"),
+    noteConfig: readRoleConfig(formData, "note"),
     gradingConfig: readRoleConfig(formData, "grading"),
     chatConfig: readRoleConfig(formData, "chat")
   };
@@ -263,6 +358,12 @@ function readSettingsForm(form) {
       baseUrl: commonBaseUrl,
       apiKey: commonApiKey,
       modelName: questionModel,
+      supportsVision: true
+    };
+    settings.noteConfig = {
+      baseUrl: commonBaseUrl,
+      apiKey: commonApiKey,
+      modelName: noteModel,
       supportsVision: true
     };
     settings.gradingConfig = {
@@ -281,6 +382,7 @@ function readSettingsForm(form) {
     settings.baseUrl = settings.questionConfig.baseUrl;
     settings.apiKey = settings.questionConfig.apiKey;
     settings.questionModel = settings.questionConfig.modelName;
+    settings.noteModel = settings.noteConfig.modelName;
     settings.gradingModel = settings.gradingConfig.modelName;
     settings.chatModel = settings.chatConfig.modelName;
     settings.gradingSupportsVision = settings.gradingConfig.supportsVision;
@@ -302,18 +404,25 @@ function normalizeSettingsForForm(settings) {
   const commonBaseUrl = settings.commonBaseUrl || settings.baseUrl || settings.questionConfig?.baseUrl || "";
   const commonApiKey = settings.commonApiKey || settings.apiKey || settings.questionConfig?.apiKey || "";
   const questionModel = settings.questionModel || settings.questionConfig?.modelName || "";
+  const noteModel = settings.noteModel || settings.noteConfig?.modelName || "";
   const gradingModel = settings.gradingModel || settings.gradingConfig?.modelName || "";
   const chatModel = settings.chatModel || settings.chatConfig?.modelName || "";
+  const homeHeroImageDataUrl = settings.homeHeroImageDataUrl || "";
+  const homeHeroImageName = settings.homeHeroImageName || "";
 
   return {
     ...settings,
     commonBaseUrl,
     commonApiKey,
     questionModel,
+    noteModel,
     gradingModel,
     chatModel,
+    homeHeroImageDataUrl,
+    homeHeroImageName,
     gradingSupportsVision: true,
     questionConfig: normalizeRoleConfig(settings.questionConfig, commonBaseUrl, commonApiKey, questionModel),
+    noteConfig: normalizeRoleConfig(settings.noteConfig, commonBaseUrl, commonApiKey, noteModel),
     gradingConfig: normalizeRoleConfig(settings.gradingConfig, commonBaseUrl, commonApiKey, gradingModel, settings.gradingSupportsVision),
     chatConfig: normalizeRoleConfig(settings.chatConfig, commonBaseUrl, commonApiKey, chatModel)
   };
@@ -332,6 +441,7 @@ function roleLabel(role) {
   return (
     {
       question: "出题模型",
+      note: "笔记模型",
       grading: "判题模型",
       chat: "解惑"
     }[role] || "模型"

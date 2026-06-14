@@ -173,12 +173,21 @@ export async function getSettings() {
     baseUrl: "",
     apiKey: "",
     questionModel: "",
+    noteModel: "",
     gradingModel: "",
     chatModel: "",
+    homeHeroImageDataUrl: "",
+    homeHeroImageName: "",
     timeoutMs: 180000,
     useSeparateConfigs: false,
     gradingSupportsVision: true,
     questionConfig: {
+      baseUrl: "",
+      apiKey: "",
+      modelName: "",
+      supportsVision: true
+    },
+    noteConfig: {
       baseUrl: "",
       apiKey: "",
       modelName: "",

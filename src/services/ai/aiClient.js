@@ -6,6 +6,7 @@ import { recordModelUsage } from "../modelUsageTracker.js";
 const DEFAULT_TIMEOUT_MS = 180000;
 const MIN_TIMEOUT_BY_ROLE = {
   question: 180000,
+  note: 180000,
   grading: 120000,
   chat: 60000
 };
@@ -17,6 +18,7 @@ function resolveTimeoutMs(settings, role, timeoutMs) {
 }
 
 function legacyRoleModel(settings, role) {
+  if (role === "note") return settings.noteModel || settings.questionModel;
   if (role === "grading") return settings.gradingModel;
   if (role === "chat") return settings.chatModel || settings.questionModel;
   return settings.questionModel;
@@ -44,10 +46,16 @@ export function resolveRoleConfig(settings, role = "question") {
   }
 
   const roleConfig =
-    role === "grading" ? settings.gradingConfig : role === "chat" ? settings.chatConfig : settings.questionConfig;
+    role === "note"
+      ? settings.noteConfig
+      : role === "grading"
+        ? settings.gradingConfig
+        : role === "chat"
+          ? settings.chatConfig
+          : settings.questionConfig;
   const normalized = normalizeConfig(roleConfig);
 
-  if (role === "chat" && !normalized.modelName) {
+  if ((role === "chat" || role === "note") && !normalized.modelName) {
     const fallback = normalizeConfig(settings.questionConfig || common);
     return fallback.modelName ? fallback : normalizeConfig(common);
   }
@@ -64,7 +72,14 @@ function ensureConfig(config, role) {
   if (!config.baseUrl) throw new Error("请先在设置页填写 Base URL");
   if (!config.apiKey) throw new Error("请先在设置页填写 API Key");
   if (!config.modelName) {
-    const label = role === "grading" ? "判题模型" : role === "chat" ? "对话模型或出题模型" : "出题模型";
+    const label =
+      role === "note"
+        ? "笔记模型或出题模型"
+        : role === "grading"
+          ? "判题模型"
+          : role === "chat"
+            ? "对话模型或出题模型"
+            : "出题模型";
     throw new Error(`请先在设置页填写${label}名称`);
   }
 }
