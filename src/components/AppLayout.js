@@ -10,6 +10,7 @@ let cleanupLayoutEvents = null;
 export const SIDEBAR_NAV_ITEMS = [
   { path: "/", label: "首页", icon: "home", match: (segments) => segments.length === 0 },
   { path: "/notebooks", label: "笔记本", icon: "folder", match: (segments) => segments[0] === "notebooks" },
+  { path: "/pdf-note", label: "PDF 笔记", icon: "file-text", match: (segments) => segments[0] === "pdf-note" },
   { path: "/sets", label: "题组库", icon: "library", match: (segments) => segments[0] === "sets" || segments[0] === "practice" },
   { path: "/wrong", label: "错题本", icon: "circle-alert", match: (segments) => segments[0] === "wrong" },
   { path: "/chat", label: "解惑", icon: "message-circle", match: (segments) => segments[0] === "chat" },
@@ -190,6 +191,7 @@ function icon(name) {
     chart: `<path d="M3 3v18h18"/><path d="M7 15v-4"/><path d="M12 15V7"/><path d="M17 15v-7"/>`,
     settings: `<path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.8 1.8 0 0 0-1.98-.36 1.8 1.8 0 0 0-1.1 1.65V21a2 2 0 1 1-4 0v-.09a1.8 1.8 0 0 0-1.1-1.65 1.8 1.8 0 0 0-1.98.36l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.8 1.8 0 0 0 4.6 15a1.8 1.8 0 0 0-1.65-1.1H3a2 2 0 1 1 0-4h.09a1.8 1.8 0 0 0 1.65-1.1 1.8 1.8 0 0 0-.36-1.98l-.06-.06A2 2 0 1 1 7.15 3.93l.06.06a1.8 1.8 0 0 0 1.98.36 1.8 1.8 0 0 0 1.1-1.65V3a2 2 0 1 1 4 0v.09a1.8 1.8 0 0 0 1.1 1.65 1.8 1.8 0 0 0 1.98-.36l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.8 1.8 0 0 0-.36 1.98 1.8 1.8 0 0 0 1.65 1.1H21a2 2 0 1 1 0 4h-.09A1.8 1.8 0 0 0 19.4 15Z"/>`,
     "book-open": `<path d="M2 4.5A3 3 0 0 1 5 3h6v18H5a3 3 0 0 0-3 1.5Z"/><path d="M22 4.5A3 3 0 0 0 19 3h-6v18h6a3 3 0 0 1 3 1.5Z"/>`,
+    "file-text": `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h6"/>`,
     "user-round": `<circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/>`,
     "chevron-up": `<path d="m18 15-6-6-6 6"/>`
   };

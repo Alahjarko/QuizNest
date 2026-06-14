@@ -28,6 +28,7 @@ export async function renderChatWorkspace(root, app) {
 }
 
 async function renderChatSurface(root, app, mode) {
+  root.classList.toggle("chat-page", mode === "workspace");
   const context = manualContext || app.getContext();
   const noteId = context?.note?.id || context?.questionSet?.noteId || "global";
   const contextKey = context?.contextKey || "general";

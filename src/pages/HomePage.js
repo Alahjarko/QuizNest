@@ -1,7 +1,7 @@
 import { confirmAction } from "../components/Modal.js";
 import { showToast } from "../components/Toast.js";
 import { APP_DESCRIPTION, APP_NAME } from "../config/appMeta.js";
-import { getAll, put, remove } from "../services/storage/db.js";
+import { getAll, getSettings, put, remove } from "../services/storage/db.js";
 import { formatDuration, getStudyDashboard } from "../services/studyTracker.js";
 import { createId, formatDateTime, nowIso } from "../utils/ids.js";
 import { readTextFile } from "../utils/file.js";
@@ -18,6 +18,7 @@ export async function renderHomePage(container, app) {
   const questions = await getAll("questions");
   const answers = await getAll("answers");
   const wrongItems = await getAll("wrongItems");
+  const settings = await getSettings();
   const study = await getStudyDashboard();
   const openWrongCount = wrongItems.filter((item) => !item.mastered).length;
   const totalStudySets = sets.length;
@@ -36,7 +37,7 @@ export async function renderHomePage(container, app) {
   ).slice(0, 5);
 
   container.innerHTML = `
-    <section class="page-header home-hero">
+    <section class="page-header home-hero ${settings.homeHeroImageDataUrl ? "has-background" : ""}" data-home-hero>
       <div class="home-hero-copy">
         <p class="eyebrow">${APP_NAME} Workspace</p>
         <h1>${APP_NAME}</h1>
@@ -173,6 +174,8 @@ export async function renderHomePage(container, app) {
     </section>
   `;
 
+  applyHomeHeroBackground(container, settings.homeHeroImageDataUrl);
+
   container.querySelector("[data-upload-note]").addEventListener("change", async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -226,6 +229,12 @@ export async function renderHomePage(container, app) {
       app.refresh();
     });
   });
+}
+
+function applyHomeHeroBackground(container, dataUrl) {
+  const hero = container.querySelector("[data-home-hero]");
+  if (!hero || !dataUrl) return;
+  hero.style.setProperty("--home-hero-bg", `url("${String(dataUrl).replaceAll('"', '\\"')}")`);
 }
 
 function todayAccuracy(today) {

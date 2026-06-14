@@ -4,6 +4,7 @@ import { renderChatPage } from "./pages/ChatPage.js";
 import { renderHomePage } from "./pages/HomePage.js";
 import { renderNotePage } from "./pages/NotePage.js";
 import { renderNotebooksPage } from "./pages/NotebooksPage.js";
+import { renderPdfNotePage } from "./pages/PdfNotePage.js";
 import { renderPracticePage } from "./pages/PracticePage.js";
 import { renderSetLibraryPage } from "./pages/SetLibraryPage.js";
 import { renderSettingsPage } from "./pages/SettingsPage.js";
@@ -67,6 +68,7 @@ function pageTitle(route) {
       practice: "练习",
       sets: "题组库",
       notebooks: "笔记本",
+      "pdf-note": "PDF 笔记",
       wrong: "错题本",
       chat: "解惑",
       stats: "统计",
@@ -121,6 +123,8 @@ async function renderApp() {
         await renderSetLibraryPage(pageContainer, app);
       } else if (route.segments[0] === "notebooks") {
         await renderNotebooksPage(pageContainer, app);
+      } else if (route.segments[0] === "pdf-note") {
+        await renderPdfNotePage(pageContainer, app);
       } else if (route.segments[0] === "wrong") {
         await renderWrongBookPage(pageContainer, app);
       } else if (route.segments[0] === "chat") {

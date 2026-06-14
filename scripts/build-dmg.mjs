@@ -38,7 +38,9 @@ function findDmgBundle() {
 }
 
 function cleanBuildCache() {
-  fs.rmSync(targetDir, { recursive: true, force: true });
+  if (process.env.QUIZNEST_CLEAN_BUILD_CACHE === "1") {
+    fs.rmSync(targetDir, { recursive: true, force: true });
+  }
 }
 
 try {
