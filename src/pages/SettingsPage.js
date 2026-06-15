@@ -5,6 +5,7 @@ import { showToast } from "../components/Toast.js";
 import { confirmAction } from "../components/Modal.js";
 import { downloadJson, readImageFile, readTextFile } from "../utils/file.js";
 import { escapeHtml } from "../utils/markdown.js";
+import { THEME_VALUES, getStoredTheme, setTheme } from "../services/theme.js";
 
 export async function renderSettingsPage(container, app) {
   app.setContext({ contextKey: "settings" });
@@ -87,6 +88,19 @@ export async function renderSettingsPage(container, app) {
         <div class="section-heading inline">
           <div>
             <p class="eyebrow">外观</p>
+            <h2>主题</h2>
+            <p>选择应用的整体配色。跟随系统时会自动匹配操作系统的浅色 / 深色设置。</p>
+          </div>
+        </div>
+        <div class="theme-control">
+          <div class="theme-segmented" data-theme-segmented role="group" aria-label="主题">
+            ${renderThemeOptions(getStoredTheme())}
+          </div>
+          <p class="theme-hint">切换会立即生效，无需点击保存。</p>
+        </div>
+
+        <div class="section-heading inline">
+          <div>
             <h2>首页封面</h2>
             <p>选择一张本地图片作为首页顶部背景。首页会自动叠加暗色遮罩，让标题和按钮保持可读。</p>
           </div>
@@ -187,6 +201,19 @@ function bindBackupActions(container, app) {
   });
 }
 
+const THEME_OPTION_LABELS = {
+  light: "浅色",
+  dark: "深色",
+  auto: "跟随系统",
+};
+
+function renderThemeOptions(current) {
+  return THEME_VALUES.map((value) => {
+    const isActive = current === value;
+    return `<button type="button" data-theme-value="${value}" class="theme-option${isActive ? " active" : ""}" aria-pressed="${isActive ? "true" : "false"}">${THEME_OPTION_LABELS[value]}</button>`;
+  }).join("");
+}
+
 function bindSettingsInteractions(container, form) {
   const separateToggle = form.elements.useSeparateConfigs;
   const common = container.querySelector("[data-common-config]");
@@ -196,6 +223,18 @@ function bindSettingsInteractions(container, form) {
     common.classList.toggle("hidden", separateToggle.checked);
     separate.classList.toggle("hidden", !separateToggle.checked);
   });
+
+  // 主题切换：即时生效，写入 localStorage。
+  const themeSegmented = container.querySelector("[data-theme-segmented]");
+  if (themeSegmented) {
+    themeSegmented.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-theme-value]");
+      if (!button) return;
+      const value = button.dataset.themeValue;
+      setTheme(value);
+      themeSegmented.innerHTML = renderThemeOptions(value);
+    });
+  }
 
   container.querySelectorAll("[data-toggle-secret]").forEach((button) => {
     button.addEventListener("click", () => {
