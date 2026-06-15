@@ -59,6 +59,7 @@ src-tauri/gen/android/app/tauri.properties
 src-tauri/gen/android/tauri.settings.gradle
 
 # Build artifacts / installers
+release/
 *.dmg
 *.apk
 *.apk.idsig

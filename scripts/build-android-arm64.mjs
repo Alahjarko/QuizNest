@@ -11,17 +11,20 @@ const productName = tauriConfig.productName || "QuizNest";
 const version = tauriConfig.version || "0.1.0";
 const outputApk = path.join(root, `${productName}_${version}_arm64-v8a.apk`);
 const alignedApk = path.join(root, `${productName}_${version}_arm64-v8a.aligned.apk`);
+const isWindows = process.platform === "win32";
 const androidHome = process.env.ANDROID_HOME || path.join(os.homedir(), "Library", "Android", "sdk");
 const javaHome = resolveJavaHome();
 const ndkHome = process.env.NDK_HOME || findInstalledNdk(androidHome);
 const buildToolsDir = findInstalledBuildTools(androidHome);
 const debugKeystore = path.join(os.homedir(), ".android", "debug.keystore");
 
+// Windows 上 spawnSync 调用 .bat/.cmd 需要走 shell；普通可执行文件/脚本直接调用。
 function run(command, args, options = {}) {
-  const result = spawnSync(command, args, {
+  const useShell = isWindows && /\.(bat|cmd)$/i.test(command);
+  const result = spawnSync(useShell ? `"${command}"` : command, useShell ? args : args, {
     cwd: options.cwd || root,
     stdio: "inherit",
-    shell: false,
+    shell: useShell,
     env: {
       ...process.env,
       ANDROID_HOME: androidHome,
@@ -31,6 +34,7 @@ function run(command, args, options = {}) {
       PATH: [
         path.join(androidHome, "platform-tools"),
         path.join(androidHome, "cmdline-tools", "latest", "bin"),
+        javaHome ? path.join(javaHome, "bin") : "",
         process.env.PATH || ""
       ].join(path.delimiter)
     }
@@ -39,17 +43,22 @@ function run(command, args, options = {}) {
 }
 
 function resolveJavaHome() {
-  if (process.env.JAVA_HOME) return process.env.JAVA_HOME;
+  if (process.env.JAVA_HOME && fs.existsSync(process.env.JAVA_HOME)) return process.env.JAVA_HOME;
 
-  const javaHomeResult = spawnSync("/usr/libexec/java_home", ["-v", "17"], {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "ignore"],
-    shell: false
-  });
-  const detectedHome = javaHomeResult.stdout?.trim();
-  if (javaHomeResult.status === 0 && detectedHome) return detectedHome;
+  if (process.platform === "darwin") {
+    const javaHomeResult = spawnSync("/usr/libexec/java_home", ["-v", "17"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      shell: false
+    });
+    const detectedHome = javaHomeResult.stdout?.trim();
+    if (javaHomeResult.status === 0 && detectedHome) return detectedHome;
+    return "/Library/Java/JavaVirtualMachines/liberica-jdk-17.jdk/Contents/Home";
+  }
 
-  return "/Library/Java/JavaVirtualMachines/liberica-jdk-17.jdk/Contents/Home";
+  throw new Error(
+    "未设置 JAVA_HOME。请先设置 JAVA_HOME 指向 JDK 17（Android Gradle Plugin 要求）。"
+  );
 }
 
 function findInstalledNdk(sdkRoot) {
@@ -75,8 +84,10 @@ function findInstalledBuildTools(sdkRoot) {
     throw new Error(`未找到 Android build-tools：${buildToolsRoot}`);
   }
 
+  // Windows 上 apksigner 是 apksigner.bat，zipalign 是 zipalign.exe；其他平台无扩展名。
+  const apksignerNames = isWindows ? ["apksigner.bat", "apksigner"] : ["apksigner"];
   const versions = fs.readdirSync(buildToolsRoot).filter((entry) => {
-    return fs.existsSync(path.join(buildToolsRoot, entry, "apksigner"));
+    return apksignerNames.some((name) => fs.existsSync(path.join(buildToolsRoot, entry, name)));
   });
   if (versions.length === 0) {
     throw new Error(`Android build-tools 中没有找到 apksigner：${buildToolsRoot}`);
@@ -84,6 +95,18 @@ function findInstalledBuildTools(sdkRoot) {
 
   versions.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   return path.join(buildToolsRoot, versions.at(-1));
+}
+
+function resolveBuildTool(name) {
+  // zipalign 在 Windows 上是 .exe，apksigner 是 .bat；其他平台直接用名字。
+  const candidates = isWindows
+    ? [`${name}.exe`, `${name}.bat`, name]
+    : [name];
+  for (const candidate of candidates) {
+    const full = path.join(buildToolsDir, candidate);
+    if (fs.existsSync(full)) return full;
+  }
+  throw new Error(`build-tools 中未找到 ${name}：${buildToolsDir}`);
 }
 
 function findBuiltApk() {
@@ -108,11 +131,17 @@ function findBuiltApk() {
   return candidates[0] || "";
 }
 
+function keytoolPath() {
+  const candidate = path.join(javaHome, "bin", isWindows ? "keytool.exe" : "keytool");
+  if (fs.existsSync(candidate)) return candidate;
+  return "keytool";
+}
+
 function ensureDebugKeystore() {
   if (fs.existsSync(debugKeystore)) return;
 
   fs.mkdirSync(path.dirname(debugKeystore), { recursive: true });
-  const status = run("keytool", [
+  const status = run(keytoolPath(), [
     "-genkeypair",
     "-v",
     "-keystore",
@@ -140,8 +169,8 @@ function ensureDebugKeystore() {
 function signApk(inputApk) {
   ensureDebugKeystore();
 
-  const zipalign = path.join(buildToolsDir, "zipalign");
-  const apksigner = path.join(buildToolsDir, "apksigner");
+  const zipalign = resolveBuildTool("zipalign");
+  const apksigner = resolveBuildTool("apksigner");
 
   fs.rmSync(alignedApk, { force: true });
   const alignStatus = run(zipalign, ["-f", "-p", "4", inputApk, alignedApk]);
