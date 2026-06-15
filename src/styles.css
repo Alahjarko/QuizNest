@@ -1515,6 +1515,62 @@ button.activity-cell {
   gap: 16px;
 }
 
+/* 主题切换：三段式分段控件（浅色 / 深色 / 跟随系统） */
+.theme-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.theme-segmented {
+  display: inline-flex;
+  padding: 4px;
+  gap: 4px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface-3);
+}
+
+.theme-segmented button {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  padding: 8px 16px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.theme-segmented button:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.theme-segmented button:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.theme-segmented button.active {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary-strong);
+}
+
+.theme-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .hero-background-control {
   display: grid;
   grid-template-columns: minmax(260px, 0.72fr) minmax(280px, 1fr);
@@ -2786,12 +2842,6 @@ textarea {
 
   body {
     background:
-      radial-gradient(circle at top left, rgba(44, 111, 78, 0.28), transparent 34rem),
-      linear-gradient(180deg, #111814 0%, var(--bg) 28rem);
-  }
-
-  .app-shell {
-    background:
       radial-gradient(circle at 0% 0%, rgba(44, 111, 78, 0.24), transparent 34rem),
       linear-gradient(135deg, #121915 0%, #0d1310 100%);
   }
@@ -3140,4 +3190,392 @@ textarea {
   .brand-mark {
     color: #07100b;
   }
+}
+
+/* ===== 手动深色模式 =====
+   与上方 @media (prefers-color-scheme: dark) 规则一一对应，作用域为 :root.dark，
+   使“设置 > 外观”中手动选择的深色主题即时生效（不依赖系统主题）。
+   如需调整深色配色，请同步修改上下两处。 */
+:root.dark {
+  color-scheme: dark;
+  --bg: #0f1512;
+  --surface: #151c18;
+  --surface-2: #1b2a22;
+  --surface-3: #111814;
+  --text: #edf3ee;
+  --muted: #a5b0aa;
+  --line: #29362f;
+  --primary: #4bb37e;
+  --primary-strong: #8bd8ad;
+  --primary-soft: #173625;
+  --danger: #ff8a82;
+  --warning: #e3b665;
+  --shadow: 0 18px 46px rgba(0, 0, 0, 0.32);
+  --success-soft: #153423;
+  --danger-soft: #3a1d1c;
+  --warning-soft: #352817;
+  --info-soft: #172b3b;
+}
+
+:root.dark body {
+  background:
+    radial-gradient(circle at top left, rgba(44, 111, 78, 0.28), transparent 34rem),
+    linear-gradient(180deg, #111814 0%, var(--bg) 28rem);
+}
+
+:root.dark .app-shell {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(44, 111, 78, 0.24), transparent 34rem),
+    linear-gradient(135deg, #121915 0%, #0d1310 100%);
+}
+
+:root.dark .app-sidebar {
+  border-right-color: rgba(57, 73, 64, 0.88);
+  background:
+    linear-gradient(155deg, rgba(31, 25, 30, 0.9), rgba(19, 27, 23, 0.94) 52%, rgba(17, 25, 28, 0.9)),
+    rgba(17, 24, 20, 0.92);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.04);
+}
+
+:root.dark .sidebar-brand:hover,
+:root.dark .sidebar-nav-item:hover,
+:root.dark .sidebar-note-item:hover,
+:root.dark .sidebar-settings-button:hover,
+:root.dark .sidebar-settings-menu button:hover,
+:root.dark .sidebar-settings-button[aria-expanded="true"] {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+:root.dark .sidebar-nav-item,
+:root.dark .sidebar-note-item,
+:root.dark .sidebar-settings-button,
+:root.dark .sidebar-settings-menu button {
+  color: var(--text);
+}
+
+:root.dark .sidebar-nav-item.active,
+:root.dark .sidebar-note-item.active,
+:root.dark .sidebar-settings-button.active {
+  background: rgba(75, 179, 126, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(75, 179, 126, 0.16);
+}
+
+:root.dark .sidebar-section-title {
+  color: #7f8b85;
+}
+
+:root.dark .sidebar-empty {
+  border-color: rgba(165, 176, 170, 0.22);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+:root.dark .sidebar-footer {
+  border-top-color: rgba(57, 73, 64, 0.86);
+}
+
+:root.dark .sidebar-settings-menu {
+  border-color: rgba(57, 73, 64, 0.94);
+  background: rgba(20, 28, 24, 0.96);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42);
+}
+
+:root.dark .app-main {
+  background: rgba(13, 19, 16, 0.82);
+}
+
+:root.dark .app-content-header {
+  border-bottom-color: rgba(57, 73, 64, 0.9);
+  background: rgba(16, 23, 19, 0.82);
+}
+
+:root.dark .home-hero {
+  border-color: rgba(57, 73, 64, 0.9);
+}
+
+:root.dark .home-hero::before {
+  background:
+    linear-gradient(135deg, rgba(22, 30, 25, 0.98), rgba(16, 26, 20, 0.94)),
+    var(--surface);
+}
+
+:root.dark .home-hero.has-background::before {
+  background-image: var(--home-hero-bg);
+  background-position: center;
+  background-size: cover;
+}
+
+:root.dark .home-hero.has-background::after {
+  background:
+    linear-gradient(90deg, rgba(5, 9, 7, 0.74), rgba(5, 9, 7, 0.52) 54%, rgba(5, 9, 7, 0.35)),
+    rgba(5, 9, 7, 0.28);
+}
+
+:root.dark .hero-meta-row span,
+:root.dark .tag-row span,
+:root.dark .question-meta span,
+:root.dark .context-tags span {
+  border-color: rgba(75, 179, 126, 0.18);
+  background: rgba(75, 179, 126, 0.12);
+}
+
+:root.dark .home-hero-card,
+:root.dark .home-hero.has-background .home-hero-card {
+  border-color: rgba(75, 179, 126, 0.2);
+  background: rgba(21, 28, 24, 0.82);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26);
+}
+
+:root.dark .hero-panel,
+:root.dark .profile-hero-profile,
+:root.dark .hero-background-preview {
+  border-color: rgba(57, 73, 64, 0.9);
+  background:
+    radial-gradient(circle at 20% 12%, rgba(42, 96, 68, 0.24), transparent 18rem),
+    linear-gradient(135deg, rgba(21, 29, 24, 0.98), rgba(14, 21, 17, 0.92));
+}
+
+:root.dark .stats-grid > div,
+:root.dark .note-card,
+:root.dark .settings-form,
+:root.dark .empty-state,
+:root.dark .error-state,
+:root.dark .notebook-create-card,
+:root.dark .notebook-card,
+:root.dark .study-dashboard,
+:root.dark .mini-set-card,
+:root.dark .set-card,
+:root.dark .analytics-panel,
+:root.dark .profile-metric-strip,
+:root.dark .profile-activity-card,
+:root.dark .set-strip article,
+:root.dark .wrong-filters,
+:root.dark .wrong-card,
+:root.dark .modal,
+:root.dark .chat-panel,
+:root.dark .chat-workspace,
+:root.dark .question-nav,
+:root.dark .question-panel,
+:root.dark .practice-summary > div,
+:root.dark .final-summary,
+:root.dark .markdown-body,
+:root.dark .section-list,
+:root.dark .settings-section {
+  background: var(--surface);
+  border-color: var(--line);
+  box-shadow: var(--shadow);
+}
+
+:root.dark .notebook-note-row,
+:root.dark .study-grid > div,
+:root.dark .set-meta-grid span,
+:root.dark .result-summary > div,
+:root.dark .status-box,
+:root.dark .switch-row,
+:root.dark .checkbox-group label,
+:root.dark .chat-context-bar,
+:root.dark .chat-message.user,
+:root.dark .home-hero-card > div {
+  background: var(--surface-3);
+}
+
+:root.dark .app-content-header,
+:root.dark .chat-workspace .chat-header {
+  background: linear-gradient(180deg, rgba(21, 29, 24, 0.96), rgba(17, 24, 20, 0.92));
+}
+
+:root.dark .chat-workspace .chat-messages {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(57, 121, 82, 0.08), transparent 28rem),
+    linear-gradient(180deg, rgba(8, 14, 11, 0.86), rgba(9, 15, 12, 0.98));
+}
+
+:root.dark .chat-input {
+  border-color: rgba(139, 216, 173, 0.2);
+  background: rgba(18, 27, 22, 0.98);
+  box-shadow:
+    0 16px 36px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+:root.dark .chat-message {
+  border: 1px solid rgba(139, 216, 173, 0.12);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+:root.dark .chat-message.user {
+  background: linear-gradient(135deg, rgba(38, 90, 62, 0.78), rgba(28, 70, 49, 0.68));
+  border-color: rgba(139, 216, 173, 0.24);
+}
+
+:root.dark .chat-message.user small {
+  color: rgba(237, 243, 238, 0.72);
+}
+
+:root.dark .chat-message.assistant {
+  background: linear-gradient(135deg, rgba(25, 35, 30, 0.98), rgba(20, 29, 24, 0.98));
+  border-color: rgba(255, 255, 255, 0.09);
+}
+
+:root.dark .secondary-button,
+:root.dark .icon-button,
+:root.dark .chat-tool-button,
+:root.dark input,
+:root.dark select,
+:root.dark textarea,
+:root.dark .profile-name-row input,
+:root.dark .question-nav-item,
+:root.dark .choice-option,
+:root.dark .answer-image-preview {
+  background: #101713;
+  border-color: var(--line);
+  color: var(--text);
+}
+
+:root.dark input::placeholder,
+:root.dark textarea::placeholder {
+  color: #7f8b85;
+}
+
+:root.dark .secondary-button:hover,
+:root.dark .chat-tool-button:hover,
+:root.dark .choice-option:hover:not(:disabled),
+:root.dark .choice-option.selected,
+:root.dark .question-nav-item.active {
+  background: var(--surface-2);
+}
+
+:root.dark .danger-button {
+  background: #201514;
+  border-color: rgba(255, 138, 130, 0.38);
+  color: var(--danger);
+}
+
+:root.dark .status-pill.not_started {
+  background: #242c27;
+  color: var(--muted);
+}
+
+:root.dark .status-pill.in_progress,
+:root.dark .question-nav-item.draft {
+  background: var(--warning-soft);
+  border-color: rgba(227, 182, 101, 0.38);
+  color: var(--warning);
+}
+
+:root.dark .status-pill.completed,
+:root.dark .question-nav-item.correct,
+:root.dark .choice-option.correct,
+:root.dark .answer-feedback.correct,
+:root.dark .mastery-badge.mastered,
+:root.dark .final-summary {
+  background: var(--success-soft);
+  border-color: rgba(139, 216, 173, 0.34);
+  color: var(--primary-strong);
+}
+
+:root.dark .question-nav-item.wrong,
+:root.dark .question-nav-item.error,
+:root.dark .choice-option.wrong,
+:root.dark .answer-feedback.wrong,
+:root.dark .mastery-badge {
+  background: var(--danger-soft);
+  border-color: rgba(255, 138, 130, 0.34);
+  color: var(--danger);
+}
+
+:root.dark .question-nav-item.pending {
+  background: var(--info-soft);
+  border-color: rgba(119, 171, 215, 0.38);
+}
+
+:root.dark .answer-image-preview img {
+  background: #0d1310;
+}
+
+:root.dark .markdown-body pre,
+:root.dark .chat-message-content pre {
+  background: #07100b;
+  color: #edf3ee;
+}
+
+:root.dark .chat-message-content :not(pre) > code,
+:root.dark .math-render-fallback {
+  background: rgba(75, 179, 126, 0.13);
+  border-color: rgba(75, 179, 126, 0.22);
+}
+
+:root.dark .modal-backdrop,
+:root.dark .chat-mask {
+  background: rgba(3, 6, 5, 0.62);
+}
+
+:root.dark .heat-cell,
+:root.dark .activity-cell {
+  border-color: rgba(139, 216, 173, 0.08);
+  background: #222b25;
+}
+
+:root.dark .heat-cell.level-1,
+:root.dark .activity-cell.level-1 {
+  background: #17402a;
+}
+
+:root.dark .heat-cell.level-2,
+:root.dark .activity-cell.level-2 {
+  background: #246a43;
+}
+
+:root.dark .heat-cell.level-3,
+:root.dark .activity-cell.level-3 {
+  background: #39a263;
+}
+
+:root.dark .heat-cell.level-4,
+:root.dark .activity-cell.level-4 {
+  background: #7edaa4;
+}
+
+:root.dark .heatmap-floating-tooltip {
+  border-color: rgba(57, 73, 64, 0.96);
+  background: rgba(20, 28, 24, 0.98);
+  color: var(--text);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.42);
+}
+
+:root.dark .insight-list > div,
+:root.dark .top-model-row,
+:root.dark .profile-metric-strip > div + div,
+:root.dark .result-table th,
+:root.dark .result-table td,
+:root.dark .modal-header {
+  border-color: var(--line);
+}
+
+:root.dark .profile-avatar-control,
+:root.dark .profile-avatar-fallback,
+:root.dark .sidebar-profile-avatar {
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.18), transparent 30%),
+    linear-gradient(135deg, #153423, #2f8e57);
+}
+
+:root.dark .toast {
+  background: #edf3ee;
+  color: #0f1512;
+}
+
+:root.dark .toast-success {
+  background: var(--primary);
+  color: #07100b;
+}
+
+:root.dark .toast-error {
+  background: var(--danger);
+  color: #200b0a;
+}
+
+:root.dark .chat-send-button,
+:root.dark .primary-button,
+:root.dark .brand-mark {
+  color: #07100b;
 }
