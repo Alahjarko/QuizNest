@@ -10,6 +10,7 @@ import { renderSetLibraryPage } from "./pages/SetLibraryPage.js";
 import { renderSettingsPage } from "./pages/SettingsPage.js";
 import { renderWrongBookPage } from "./pages/WrongBookPage.js";
 import { openDb } from "./services/storage/db.js";
+import { watchSystemTheme } from "./services/theme.js";
 import { startStudyTimer } from "./services/studyTracker.js";
 import { typesetMath } from "./utils/math.js";
 
@@ -153,4 +154,6 @@ async function refreshChat() {
 window.addEventListener("hashchange", renderApp);
 if (!window.location.hash) window.location.hash = "#/";
 startStudyTimer({ isActive: isStudyRouteActive });
+// 主题偏好为“跟随系统”时，响应操作系统深浅色变化即时切换。
+watchSystemTheme();
 renderApp();
