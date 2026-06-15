@@ -5,6 +5,7 @@
 .idea/
 .vscode/
 .kunsdd/
+agent_log/
 
 # Environment / secrets
 .env
