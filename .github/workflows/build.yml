@@ -8,9 +8,36 @@ on:
 
 jobs:
   # ──────────────────────────────────────────────
-  #  Windows  (amd64 · NSIS installer)
+  #  Main branch quick check
+  # ──────────────────────────────────────────────
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Sync frontend to dist
+        run: node scripts/sync-dist.mjs
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cargo check Tauri backend
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+  # ──────────────────────────────────────────────
+  #  Windows  (amd64 · NSIS installer, tags only)
   # ──────────────────────────────────────────────
   build-windows:
+    needs: check
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -54,9 +81,11 @@ jobs:
           if-no-files-found: error
 
   # ──────────────────────────────────────────────
-  #  Android  (arm64-v8a · APK)
+  #  Android  (arm64-v8a · APK, tags only)
   # ──────────────────────────────────────────────
   build-android:
+    needs: check
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
@@ -156,151 +185,10 @@ jobs:
           if-no-files-found: error
 
   # ──────────────────────────────────────────────
-  #  macOS  (Apple Silicon · DMG)
-  # ──────────────────────────────────────────────
-  build-macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install frontend dependencies
-        run: npm install
-
-      - name: Sync frontend to dist
-        run: node scripts/sync-dist.mjs
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-darwin
-
-      - name: Cache Rust registry & build
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            src-tauri/target
-          key: macos-${{ runner.os }}-rust-${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: macos-${{ runner.os }}-rust-
-
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version 2.11.2 --locked
-
-      - name: Check macOS signing secrets
-        id: macos_signing
-        shell: bash
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-        run: |
-          missing=()
-          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID KEYCHAIN_PASSWORD; do
-            if [ -z "${!name}" ]; then
-              missing+=("$name")
-            fi
-          done
-
-          if [ "${#missing[@]}" -eq 0 ]; then
-            echo "mode=signed" >> "$GITHUB_OUTPUT"
-            echo "macOS release mode: signed and notarized"
-            exit 0
-          fi
-
-          echo "mode=unsigned" >> "$GITHUB_OUTPUT"
-          printf 'Missing macOS signing secrets: %s\n' "${missing[*]}"
-
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            echo "::error::Tagged macOS releases must be signed and notarized. Add the missing Apple Developer secrets before pushing a release tag."
-            exit 1
-          fi
-
-          echo "::warning::Building an unsigned macOS DMG for a non-release run. Downloaded unsigned DMGs may be blocked by Gatekeeper."
-
-      - name: Import Apple Developer ID certificate
-        if: steps.macos_signing.outputs.mode == 'signed'
-        shell: bash
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-        run: |
-          CERTIFICATE_PATH="$RUNNER_TEMP/apple-developer-id.p12"
-          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
-
-          echo "$APPLE_CERTIFICATE" | base64 --decode > "$CERTIFICATE_PATH"
-
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security import "$CERTIFICATE_PATH" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-          security list-keychains -d user -s "$KEYCHAIN_PATH"
-          security default-keychain -d user -s "$KEYCHAIN_PATH"
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-
-          identity="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | sed -n 's/.*"\(Developer ID Application:.*\)".*/\1/p' | head -n1)"
-          if [ -z "$identity" ]; then
-            security find-identity -v -p codesigning "$KEYCHAIN_PATH"
-            echo "::error::No Developer ID Application signing identity found in APPLE_CERTIFICATE. Export a Developer ID Application certificate for direct DMG distribution."
-            exit 1
-          fi
-
-          echo "APPLE_SIGNING_IDENTITY=$identity" >> "$GITHUB_ENV"
-          echo "Using signing identity: $identity"
-
-      - name: Build DMG
-        working-directory: src-tauri
-        shell: bash
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          if [ "${{ steps.macos_signing.outputs.mode }}" = "signed" ]; then
-            cargo tauri build --target aarch64-apple-darwin --bundles dmg --ci
-          else
-            APPLE_SIGNING_IDENTITY="-" cargo tauri build --target aarch64-apple-darwin --bundles dmg --ci
-          fi
-
-      - name: Verify signed macOS artifact
-        if: steps.macos_signing.outputs.mode == 'signed'
-        shell: bash
-        run: |
-          app_path="$(find src-tauri/target -type d -path '*/release/bundle/macos/*.app' -prune | head -n1)"
-          dmg_path="$(find src-tauri/target -path '*/release/bundle/dmg/*.dmg' -type f | head -n1)"
-
-          if [ -z "$app_path" ] || [ -z "$dmg_path" ]; then
-            echo "::error::Could not find the signed macOS app or DMG artifact."
-            find src-tauri/target -path '*/release/bundle/*' -print
-            exit 1
-          fi
-
-          codesign --verify --deep --strict --verbose=2 "$app_path"
-          spctl --assess --type execute --verbose=4 "$app_path"
-          xcrun stapler validate "$app_path"
-          xcrun stapler validate "$dmg_path"
-
-      - name: Upload macOS DMG
-        uses: actions/upload-artifact@v4
-        with:
-          name: QuizNest_macos_apple_silicon_${{ steps.macos_signing.outputs.mode }}
-          path: src-tauri/target/**/release/bundle/dmg/*.dmg
-          if-no-files-found: error
-
-  # ──────────────────────────────────────────────
-  #  Release  (only on tag push: v*)
+  #  Release  (Windows and Android only; macOS is packaged locally)
   # ──────────────────────────────────────────────
   release:
-    needs: [build-windows, build-android, build-macos]
+    needs: [build-windows, build-android]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:

@@ -1,16 +1,33 @@
-# macOS Release Signing
+# macOS Local Release
 
-GitHub Actions can build a DMG without Apple signing credentials, but a downloaded unsigned or ad-hoc signed DMG can be blocked by macOS Gatekeeper and shown as "damaged".
+GitHub Actions does not build the macOS DMG for QuizNest anymore. The macOS package is built locally on a Mac.
 
-For tagged releases (`v*`), QuizNest requires a signed and notarized macOS artifact. Configure these repository secrets before pushing a release tag:
+Reason:
 
-- `APPLE_CERTIFICATE`: base64 encoded `.p12` export of a **Developer ID Application** certificate.
-- `APPLE_CERTIFICATE_PASSWORD`: password for the `.p12` export.
-- `KEYCHAIN_PASSWORD`: temporary CI keychain password.
-- `APPLE_ID`: Apple ID email used for notarization.
-- `APPLE_PASSWORD`: Apple app-specific password.
-- `APPLE_TEAM_ID`: Apple Developer Team ID.
+- Downloaded GitHub-built DMGs need Apple Developer ID signing, notarization, and stapling to avoid Gatekeeper showing the app as "damaged".
+- CI signing adds fragile Apple certificate and notarization setup to a project that is mainly used locally.
+- Local macOS packaging has already been reliable for QuizNest.
 
-After the secrets are present, the workflow imports the certificate, builds the Apple Silicon DMG, lets Tauri sign and notarize it, then validates the app and DMG with `codesign`, `spctl`, and `stapler`.
+Use the local build script when a macOS installer is needed:
 
-Non-tag branch builds may still create an unsigned DMG for testing, but those artifacts are not suitable for normal user installation after download.
+```bash
+npm run build:dmg
+```
+
+The GitHub workflow now behaves as follows:
+
+- `main` push: quick check only.
+- `v*` tag push: build Windows and Android release assets.
+- macOS DMG: build locally and distribute manually.
+
+If a downloaded local DMG is blocked by Gatekeeper during personal testing, verify it first:
+
+```bash
+hdiutil verify release/QuizNest_*.dmg
+```
+
+For a personal, non-notarized app copied from a trusted local build, removing quarantine can help:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/QuizNest.app
+```

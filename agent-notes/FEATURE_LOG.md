@@ -224,6 +224,24 @@
 - 需要付费 Apple Developer 账号的 **Developer ID Application** 证书；免费账号无法完成正式 notarization。
 - 需要在 GitHub 仓库 secrets 中配置：`APPLE_CERTIFICATE`、`APPLE_CERTIFICATE_PASSWORD`、`KEYCHAIN_PASSWORD`、`APPLE_ID`、`APPLE_PASSWORD`、`APPLE_TEAM_ID`。
 
+### 2026-06-15 / Codex / GPT-5
+
+完成内容（CI 打包策略调整）：
+
+- 根据用户决定，撤销 GitHub Actions 的 macOS DMG 打包路线，后续 macOS 安装包改为本地打包。
+- `main` push 现在只跑轻量检查：安装依赖、同步 dist、`cargo check`。
+- `v*` tag push 只构建 Windows NSIS 和 Android arm64-v8a APK，并把这两个平台产物放入 GitHub Release。
+- 更新 `docs/macos-release.md`，记录 macOS 本地打包策略与本地测试说明。
+
+涉及文件：
+
+- `.github/workflows/build.yml`
+- `docs/macos-release.md`
+
+验证：
+
+- workflow YAML 解析通过。
+
 ### 给 Codex 的备忘（GLM-5.2）
 
 - `.gitignore` 已追加 `release/`（排除旧构建产物）和 `agent_log/`（排除本日志目录，避免误提交）。
