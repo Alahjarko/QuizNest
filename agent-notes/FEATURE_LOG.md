@@ -229,7 +229,7 @@
 完成内容（CI 打包策略调整）：
 
 - 根据用户决定，撤销 GitHub Actions 的 macOS DMG 打包路线，后续 macOS 安装包改为本地打包。
-- `main` push 现在只跑轻量检查：安装依赖、同步 dist、`cargo check`。
+- `main` push 现在只跑轻量检查：安装依赖、同步 dist、JavaScript 语法检查。
 - `v*` tag push 只构建 Windows NSIS 和 Android arm64-v8a APK，并把这两个平台产物放入 GitHub Release。
 - 更新 `docs/macos-release.md`，记录 macOS 本地打包策略与本地测试说明。
 
@@ -241,6 +241,27 @@
 验证：
 
 - workflow YAML 解析通过。
+
+### 2026-06-15 / Codex / GPT-5
+
+完成内容（CI 轻量检查修正）：
+
+- 修正上一版 workflow 的错误：`main` 上的“轻量检查”不再运行 Tauri 后端 `cargo check`。
+- 原因：Ubuntu Runner 直接检查 Tauri 桌面后端会依赖 WebKit/GTK 等系统包，既不轻量，也容易在 30 秒左右失败。
+- 新的 `main` 检查只做 Node 依赖安装、`dist` 同步和所有前端/脚本 JavaScript 文件的 `node --check`。
+- 新增 workflow concurrency：同一分支或 tag 的新运行会取消旧运行，减少重复 Actions 噪音。
+- `v*` tag 的 Windows NSIS 与 Android arm64-v8a 打包策略保持不变；macOS DMG 继续本地打包。
+
+涉及文件：
+
+- `.github/workflows/build.yml`
+- `agent-notes/FEATURE_LOG.md`
+
+验证：
+
+- workflow YAML 解析通过。
+- 本地 JavaScript 语法检查通过。
+- `npm run sync-dist` 通过。
 
 ### 给 Codex 的备忘（GLM-5.2）
 

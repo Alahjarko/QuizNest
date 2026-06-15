@@ -6,6 +6,10 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # ──────────────────────────────────────────────
   #  Main branch quick check
@@ -26,11 +30,12 @@ jobs:
       - name: Sync frontend to dist
         run: node scripts/sync-dist.mjs
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cargo check Tauri backend
-        run: cargo check --manifest-path src-tauri/Cargo.toml
+      - name: Check JavaScript syntax
+        shell: bash
+        run: |
+          while IFS= read -r file; do
+            node --check "$file"
+          done < <(find src scripts server -type f \( -name '*.js' -o -name '*.mjs' \) | sort)
 
   # ──────────────────────────────────────────────
   #  Windows  (amd64 · NSIS installer, tags only)
