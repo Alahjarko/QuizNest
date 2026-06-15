@@ -263,6 +263,29 @@
 - 本地 JavaScript 语法检查通过。
 - `npm run sync-dist` 通过。
 
+### 2026-06-15 / Codex / GPT-5
+
+完成内容（v0.1.3 发版准备）：
+
+- 将 QuizNest 应用版本从 `0.1.1` 同步提升到 `0.1.3`，避开已经失败并绑定旧 workflow 的 `v0.1.2` tag。
+- 准备基于修复后的 workflow 创建 `v0.1.3` tag，用于触发 GitHub Actions 的 Windows NSIS 与 Android arm64-v8a 打包。
+- macOS DMG 仍按既定策略走本地打包，不再通过 GitHub Actions 生成。
+
+涉及文件：
+
+- `package.json`
+- `package-lock.json`
+- `src-tauri/Cargo.toml`
+- `src-tauri/Cargo.lock`
+- `src-tauri/tauri.conf.json`
+- `agent-notes/FEATURE_LOG.md`
+
+验证：
+
+- workflow YAML 解析通过。
+- 本地 JavaScript 语法检查通过。
+- 应用版本号同步检查通过。
+
 ### 给 Codex 的备忘（GLM-5.2）
 
 - `.gitignore` 已追加 `release/`（排除旧构建产物）和 `agent_log/`（排除本日志目录，避免误提交）。
