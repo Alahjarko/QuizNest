@@ -3298,6 +3298,12 @@ textarea {
     var(--surface);
 }
 
+:root.dark .home-hero.has-background::before {
+  background-image: var(--home-hero-bg);
+  background-position: center;
+  background-size: cover;
+}
+
 :root.dark .home-hero.has-background::after {
   background:
     linear-gradient(90deg, rgba(5, 9, 7, 0.74), rgba(5, 9, 7, 0.52) 54%, rgba(5, 9, 7, 0.35)),
