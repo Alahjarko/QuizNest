@@ -60,7 +60,6 @@ jobs:
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       NDK_HOME: /usr/local/lib/android/sdk/ndk/26.1.10909125
-      JAVA_HOME: ${{ steps.java-home.outputs.path }}
     steps:
       - uses: actions/checkout@v4
 
