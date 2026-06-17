@@ -33,7 +33,7 @@ export async function renderSettingsPage(container, app) {
           </label>
         </div>
 
-        <div data-common-config class="${settings.useSeparateConfigs ? "hidden" : ""}">
+        <div data-common-config class="model-config-body ${settings.useSeparateConfigs ? "hidden" : ""}">
           <label>
             <span>Base URL</span>
             <input name="commonBaseUrl" placeholder="https://api.openai.com/v1" value="${escapeHtml(settings.commonBaseUrl)}" />
@@ -66,7 +66,7 @@ export async function renderSettingsPage(container, app) {
             </label>
           </div>
           <div class="status-box">
-            图片/视觉输入默认开启。上传图片答案时，QuizNest 会按 OpenAI-compatible 多模态消息发送给判题模型；如果模型本身不支持图片，服务端会返回错误，请改用支持视觉的模型或只提交文字答案。
+            图片/视觉输入和模型思考默认开启。上传图片答案时，QuizNest 会按 OpenAI-compatible 多模态消息发送给判题模型；请求会附带 enable_thinking=true。如果服务端不支持对应能力，会返回错误，请更换模型或只提交文字答案。
           </div>
           <div class="form-actions">
             <button class="secondary-button" type="button" data-test-role="question">测试出题模型</button>
@@ -343,7 +343,7 @@ function renderRoleConfig(role, title, description, config) {
         <span>模型名称</span>
         <input name="${role}ModelName" placeholder="${role === "chat" ? "留空则使用出题模型" : "模型名称"}" value="${escapeHtml(config.modelName)}" />
       </label>
-      <div class="status-box">视觉输入默认开启；如果这里填写的模型不支持图片，请避免上传图片答案或换用多模态模型。</div>
+      <div class="status-box">视觉输入和模型思考默认开启；请求会附带 enable_thinking=true。如果这里填写的模型不支持图片，请避免上传图片答案或换用多模态模型。</div>
     </section>
   `;
 }
@@ -385,6 +385,7 @@ function readSettingsForm(form) {
     homeHeroImageDataUrl,
     homeHeroImageName,
     gradingSupportsVision: true,
+    enableThinking: true,
     timeoutMs: Number(formData.get("timeoutMs") || 180000),
     questionConfig: readRoleConfig(formData, "question"),
     noteConfig: readRoleConfig(formData, "note"),
@@ -397,25 +398,29 @@ function readSettingsForm(form) {
       baseUrl: commonBaseUrl,
       apiKey: commonApiKey,
       modelName: questionModel,
-      supportsVision: true
+      supportsVision: true,
+      enableThinking: true
     };
     settings.noteConfig = {
       baseUrl: commonBaseUrl,
       apiKey: commonApiKey,
       modelName: noteModel,
-      supportsVision: true
+      supportsVision: true,
+      enableThinking: true
     };
     settings.gradingConfig = {
       baseUrl: commonBaseUrl,
       apiKey: commonApiKey,
       modelName: gradingModel,
-      supportsVision: true
+      supportsVision: true,
+      enableThinking: true
     };
     settings.chatConfig = {
       baseUrl: commonBaseUrl,
       apiKey: commonApiKey,
       modelName: chatModel,
-      supportsVision: true
+      supportsVision: true,
+      enableThinking: true
     };
   } else {
     settings.baseUrl = settings.questionConfig.baseUrl;
@@ -435,7 +440,8 @@ function readRoleConfig(formData, role) {
     baseUrl: String(formData.get(`${role}BaseUrl`) || "").trim(),
     apiKey: String(formData.get(`${role}ApiKey`) || "").trim(),
     modelName: String(formData.get(`${role}ModelName`) || "").trim(),
-    supportsVision: true
+    supportsVision: true,
+    enableThinking: true
   };
 }
 
@@ -460,6 +466,7 @@ function normalizeSettingsForForm(settings) {
     homeHeroImageDataUrl,
     homeHeroImageName,
     gradingSupportsVision: true,
+    enableThinking: true,
     questionConfig: normalizeRoleConfig(settings.questionConfig, commonBaseUrl, commonApiKey, questionModel),
     noteConfig: normalizeRoleConfig(settings.noteConfig, commonBaseUrl, commonApiKey, noteModel),
     gradingConfig: normalizeRoleConfig(settings.gradingConfig, commonBaseUrl, commonApiKey, gradingModel, settings.gradingSupportsVision),
@@ -472,7 +479,8 @@ function normalizeRoleConfig(config = {}, baseUrl = "", apiKey = "", modelName =
     baseUrl: config.baseUrl || baseUrl,
     apiKey: config.apiKey || apiKey,
     modelName: config.modelName || modelName,
-    supportsVision: true
+    supportsVision: true,
+    enableThinking: config.enableThinking !== false
   };
 }
 

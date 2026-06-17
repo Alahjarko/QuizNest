@@ -18,6 +18,8 @@ pub struct ChatCompletionRequest {
     pub temperature: f64,
     #[serde(default)]
     pub timeout_ms: Option<u64>,
+    #[serde(default)]
+    pub enable_thinking: Option<bool>,
     pub response_format: Option<serde_json::Value>,
 }
 
@@ -35,6 +37,8 @@ pub struct StreamChatRequest {
     pub temperature: f64,
     #[serde(default)]
     pub timeout_ms: Option<u64>,
+    #[serde(default)]
+    pub enable_thinking: Option<bool>,
 }
 
 fn default_stream_temperature() -> f64 {
@@ -224,6 +228,10 @@ async fn chat_completions(request: ChatCompletionRequest) -> Result<ApiResponse,
         payload["response_format"] = rf.clone();
     }
 
+    if let Some(enable_thinking) = request.enable_thinking {
+        payload["enable_thinking"] = serde_json::Value::Bool(enable_thinking);
+    }
+
     let response = client
         .post(&url)
         .headers(headers)
@@ -357,12 +365,16 @@ async fn chat_completions_stream(
             .map_err(|e| format!("Invalid API key: {}", e))?,
     );
 
-    let payload = serde_json::json!({
+    let mut payload = serde_json::json!({
         "model": request.model,
         "messages": request.messages,
         "temperature": request.temperature,
         "stream": true,
     });
+
+    if let Some(enable_thinking) = request.enable_thinking {
+        payload["enable_thinking"] = serde_json::Value::Bool(enable_thinking);
+    }
 
     let response = client
         .post(&url)

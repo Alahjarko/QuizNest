@@ -29,7 +29,8 @@ function normalizeConfig(config = {}) {
     baseUrl: String(config.baseUrl || "").trim(),
     apiKey: String(config.apiKey || "").trim(),
     modelName: String(config.modelName || config.model || "").trim(),
-    supportsVision: true
+    supportsVision: true,
+    enableThinking: config.enableThinking !== false
   };
 }
 
@@ -38,7 +39,8 @@ export function resolveRoleConfig(settings, role = "question") {
     baseUrl: settings.commonBaseUrl || settings.baseUrl || settings.questionConfig?.baseUrl || "",
     apiKey: settings.commonApiKey || settings.apiKey || settings.questionConfig?.apiKey || "",
     modelName: legacyRoleModel(settings, role),
-    supportsVision: true
+    supportsVision: true,
+    enableThinking: settings.enableThinking !== false
   };
 
   if (!settings.useSeparateConfigs) {
@@ -124,6 +126,7 @@ export async function callChatCompletionWithConfig({
     messages,
     temperature,
     timeoutMs,
+    enableThinking: config.enableThinking !== false,
     responseFormat: json ? { type: "json_object" } : undefined
   });
 
@@ -189,6 +192,7 @@ export async function callChatCompletionStream({
     messages,
     temperature,
     timeoutMs: resolveTimeoutMs(settings, role, timeoutMs),
+    enableThinking: config.enableThinking !== false,
     onToken,
     onError: (err) => {
       throw err;

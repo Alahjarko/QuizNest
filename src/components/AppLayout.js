@@ -3,9 +3,9 @@ import { getAll } from "../services/storage/db.js";
 import { getProfile, profileInitials } from "../services/profile.js";
 import { escapeHtml } from "../utils/markdown.js";
 
-const NOTE_LIMIT = 7;
-
 let cleanupLayoutEvents = null;
+const SIDEBAR_NOTEBOOK_STATE_KEY = "quiznest:sidebar:notebook-state";
+const UNFILED_NOTEBOOK_STATE_ID = "__unfiled__";
 
 export const SIDEBAR_NAV_ITEMS = [
   { path: "/", label: "首页", icon: "home", match: (segments) => segments.length === 0 },
@@ -22,15 +22,16 @@ export async function getAppLayoutData() {
   return {
     notes: notes
       .slice()
-      .sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")))
-      .slice(0, NOTE_LIMIT),
-    notebooks,
+      .sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || ""))),
+    notebooks: notebooks
+      .slice()
+      .sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || ""))),
     profile
   };
 }
 
 export function renderAppLayout({ route, title, notes, notebooks = [], profile }) {
-  const notebookMap = new Map(notebooks.map((notebook) => [notebook.id, notebook]));
+  const notebookGroups = buildNotebookGroups(notes, notebooks, route, readSidebarNotebookState());
   return `
     <div class="app-shell">
       <aside class="app-sidebar" aria-label="QuizNest 导航">
@@ -49,10 +50,10 @@ export function renderAppLayout({ route, title, notes, notebooks = [], profile }
             ${SIDEBAR_NAV_ITEMS.map((item) => renderNavItem(item, route)).join("")}
           </nav>
 
-          <section class="sidebar-section" aria-label="笔记">
-            <div class="sidebar-section-title">笔记</div>
-            <div class="sidebar-note-list">
-              ${notes.length ? notes.map((note) => renderNoteItem(note, route, notebookMap)).join("") : renderEmptyNotes()}
+          <section class="sidebar-section" aria-label="笔记本">
+            <div class="sidebar-section-title">笔记本</div>
+            <div class="sidebar-notebook-list">
+              ${notebookGroups.length ? renderNotebookTree(notebookGroups, route) : renderEmptyNotes()}
             </div>
           </section>
         </div>
@@ -99,6 +100,7 @@ export function bindAppLayout(root, { navigate }) {
 
   const menu = root.querySelector("[data-sidebar-settings-menu]");
   const toggle = root.querySelector("[data-sidebar-settings-toggle]");
+  const notebookDetails = Array.from(root.querySelectorAll("[data-sidebar-notebook-id]"));
 
   const closeMenu = () => {
     if (!menu || !toggle) return;
@@ -133,9 +135,19 @@ export function bindAppLayout(root, { navigate }) {
     if (event.key === "Escape") closeMenu();
   };
 
+  const onNotebookToggle = (event) => {
+    const details = event.currentTarget;
+    const state = readSidebarNotebookState();
+    state[details.dataset.sidebarNotebookId] = details.open;
+    writeSidebarNotebookState(state);
+  };
+
+  notebookDetails.forEach((details) => details.addEventListener("toggle", onNotebookToggle));
+
   document.addEventListener("pointerdown", onDocumentPointerDown);
   document.addEventListener("keydown", onDocumentKeydown);
   cleanupLayoutEvents = () => {
+    notebookDetails.forEach((details) => details.removeEventListener("toggle", onNotebookToggle));
     document.removeEventListener("pointerdown", onDocumentPointerDown);
     document.removeEventListener("keydown", onDocumentKeydown);
   };
@@ -151,16 +163,101 @@ function renderNavItem(item, route) {
   `;
 }
 
-function renderNoteItem(note, route, notebookMap) {
-  const active = route.segments[0] === "note" && route.segments[1] === note.id;
-  const notebookTitle = note.notebookId && notebookMap.has(note.notebookId) ? notebookMap.get(note.notebookId).title : "未归档";
+function buildNotebookGroups(notes, notebooks, route, savedState = {}) {
+  const notebookMap = new Map(notebooks.map((notebook) => [notebook.id, notebook]));
+  const groupedNotes = new Map();
+  const unfiledNotes = [];
+  const activeNoteId = route.segments[0] === "note" ? route.segments[1] : "";
+  const forceActiveOpen = route.segments[0] === "note";
+
+  notes.forEach((note) => {
+    if (note.notebookId && notebookMap.has(note.notebookId)) {
+      const groupNotes = groupedNotes.get(note.notebookId) || [];
+      groupNotes.push(note);
+      groupedNotes.set(note.notebookId, groupNotes);
+    } else {
+      unfiledNotes.push(note);
+    }
+  });
+
+  const groups = notebooks
+    .map((notebook) => {
+      const groupNotes = groupedNotes.get(notebook.id) || [];
+      return {
+        id: notebook.id,
+        title: notebook.title || "未命名笔记本",
+        notes: groupNotes,
+        active: groupNotes.some((note) => note.id === activeNoteId)
+      };
+    })
+    .filter((group) => group.notes.length > 0);
+
+  if (unfiledNotes.length) {
+    groups.push({
+      id: "",
+      title: "未归档",
+      notes: unfiledNotes,
+      active: unfiledNotes.some((note) => note.id === activeNoteId)
+    });
+  }
+
+  const hasActiveGroup = groups.some((group) => group.active);
+  return groups.map((group, index) => ({
+    ...group,
+    open: getNotebookOpenState(group, index, hasActiveGroup, savedState, forceActiveOpen)
+  }));
+}
+
+function getNotebookOpenState(group, index, hasActiveGroup, savedState, forceActiveOpen) {
+  if (forceActiveOpen && group.active) return true;
+  const stateKey = group.id || UNFILED_NOTEBOOK_STATE_ID;
+  if (Object.prototype.hasOwnProperty.call(savedState, stateKey)) {
+    return Boolean(savedState[stateKey]);
+  }
+  return group.active || (!hasActiveGroup && index === 0);
+}
+
+function renderNotebookTree(groups, route) {
+  return groups.map((group) => renderNotebookGroup(group, route)).join("");
+}
+
+function renderNotebookGroup(group, route) {
+  const stateKey = group.id || UNFILED_NOTEBOOK_STATE_ID;
   return `
-    <button class="sidebar-note-item ${active ? "active" : ""}" data-nav="/note/${escapeHtml(note.id)}" type="button" ${active ? 'aria-current="page"' : ""}>
-      ${icon("book-open")}
-      <span>
-        <strong>${escapeHtml(note.title || "未命名笔记")}</strong>
-        <small>${escapeHtml(notebookTitle)} · ${escapeHtml(note.fileName || "Markdown 笔记")}</small>
-      </span>
+    <details class="sidebar-notebook-group ${group.active ? "active" : ""}" data-sidebar-notebook-id="${escapeHtml(stateKey)}" ${group.open ? "open" : ""}>
+      <summary class="sidebar-notebook-summary">
+        ${icon("chevron-right")}
+        <span>${escapeHtml(group.title)}</span>
+      </summary>
+      <div class="sidebar-notebook-notes">
+        ${group.notes.map((note) => renderNotebookNoteItem(note, route)).join("")}
+      </div>
+    </details>
+  `;
+}
+
+function readSidebarNotebookState() {
+  try {
+    return JSON.parse(window.localStorage.getItem(SIDEBAR_NOTEBOOK_STATE_KEY) || "{}") || {};
+  } catch {
+    return {};
+  }
+}
+
+function writeSidebarNotebookState(state) {
+  try {
+    window.localStorage.setItem(SIDEBAR_NOTEBOOK_STATE_KEY, JSON.stringify(state));
+  } catch {
+    // localStorage may be unavailable in restricted WebViews; the sidebar still works without persistence.
+  }
+}
+
+function renderNotebookNoteItem(note, route) {
+  const active = route.segments[0] === "note" && route.segments[1] === note.id;
+  return `
+    <button class="sidebar-notebook-note ${active ? "active" : ""}" data-nav="/note/${escapeHtml(note.id)}" type="button" ${active ? 'aria-current="page"' : ""}>
+      <strong>${escapeHtml(note.title || "未命名笔记")}</strong>
+      <small>${escapeHtml(note.fileName || "Markdown 笔记")}</small>
     </button>
   `;
 }
@@ -193,7 +290,8 @@ function icon(name) {
     "book-open": `<path d="M2 4.5A3 3 0 0 1 5 3h6v18H5a3 3 0 0 0-3 1.5Z"/><path d="M22 4.5A3 3 0 0 0 19 3h-6v18h6a3 3 0 0 1 3 1.5Z"/>`,
     "file-text": `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h6"/>`,
     "user-round": `<circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/>`,
-    "chevron-up": `<path d="m18 15-6-6-6 6"/>`
+    "chevron-up": `<path d="m18 15-6-6-6 6"/>`,
+    "chevron-right": `<path d="m9 18 6-6-6-6"/>`
   };
 
   return `<svg class="lucide-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${paths[name] || ""}</svg>`;
