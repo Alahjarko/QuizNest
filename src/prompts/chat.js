@@ -7,6 +7,8 @@ export function buildChatMessages({ context, history, userMessage }) {
     noteExcerpt: context?.note ? noteExcerpt(context.note, 7000) : undefined,
     currentSection: context?.section,
     questionSet: sanitizePromptValue(context?.questionSet, 1200),
+    questionSetProgress: sanitizePromptValue(context?.questionSetProgress, 1200),
+    questionSetAnswers: sanitizePromptValue(context?.questionSetAnswers, 2200),
     question: sanitizePromptValue(context?.question, 2500),
     userAnswer: summarizeAnswerForPrompt(context?.answer),
     correctAnswer: compactText(context?.correctAnswer, 1800),

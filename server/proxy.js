@@ -148,7 +148,7 @@ async function handleChatCompletions(req, res) {
     return;
   }
 
-  const { baseUrl, apiKey, model, messages, temperature, response_format, timeoutMs } = body;
+  const { baseUrl, apiKey, model, messages, temperature, response_format, timeoutMs, enableThinking, enable_thinking } = body;
 
   if (!apiKey || typeof apiKey !== "string") {
     sendJson(res, 400, { ok: false, errorType: "missing_api_key", message: "API Key 不能为空" });
@@ -183,6 +183,7 @@ async function handleChatCompletions(req, res) {
       temperature: typeof temperature === "number" ? temperature : 0.2
     };
     if (response_format) payload.response_format = response_format;
+    payload.enable_thinking = enableThinking ?? enable_thinking ?? true;
 
     const apiResponse = await fetch(url, {
       method: "POST",
@@ -240,7 +241,7 @@ async function handleChatCompletionsStream(req, res) {
     return;
   }
 
-  const { baseUrl, apiKey, model, messages, temperature, timeoutMs } = body;
+  const { baseUrl, apiKey, model, messages, temperature, timeoutMs, enableThinking, enable_thinking } = body;
 
   if (!apiKey || typeof apiKey !== "string") {
     sendJson(res, 400, { ok: false, errorType: "missing_api_key", message: "API Key 不能为空" });
@@ -279,7 +280,8 @@ async function handleChatCompletionsStream(req, res) {
         model,
         messages,
         temperature: typeof temperature === "number" ? temperature : 0.4,
-        stream: true
+        stream: true,
+        enable_thinking: enableThinking ?? enable_thinking ?? true
       }),
       signal: controller.signal
     });

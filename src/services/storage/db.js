@@ -181,29 +181,34 @@ export async function getSettings() {
     timeoutMs: 180000,
     useSeparateConfigs: false,
     gradingSupportsVision: true,
+    enableThinking: true,
     questionConfig: {
       baseUrl: "",
       apiKey: "",
       modelName: "",
-      supportsVision: true
+      supportsVision: true,
+      enableThinking: true
     },
     noteConfig: {
       baseUrl: "",
       apiKey: "",
       modelName: "",
-      supportsVision: true
+      supportsVision: true,
+      enableThinking: true
     },
     gradingConfig: {
       baseUrl: "",
       apiKey: "",
       modelName: "",
-      supportsVision: true
+      supportsVision: true,
+      enableThinking: true
     },
     chatConfig: {
       baseUrl: "",
       apiKey: "",
       modelName: "",
-      supportsVision: true
+      supportsVision: true,
+      enableThinking: true
     }
   };
 }

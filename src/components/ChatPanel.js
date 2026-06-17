@@ -443,8 +443,12 @@ async function openContextPicker(app, mode = "panel") {
     const question = questions.find((item) => item.id === questionSelect.value);
     const answer = question ? answers.find((item) => item.questionId === question.id) : null;
     const wrongItem = question ? wrongItems.find((item) => item.questionId === question.id) : null;
+    const setQuestions = set
+      ? questions.filter((item) => item.setId === set.id).sort((a, b) => Number(a.order || 0) - Number(b.order || 0))
+      : [];
+    const setAnswerSummary = set ? buildQuestionSetAnswerSummary(setQuestions, answers, wrongItems) : null;
 
-    manualContext = buildManualContext({ note, set, question, answer, wrongItem });
+    manualContext = buildManualContext({ note, set, question, answer, wrongItem, setAnswerSummary });
     modal.close();
     if (mode === "workspace") {
       app.refresh();
@@ -455,7 +459,7 @@ async function openContextPicker(app, mode = "panel") {
   });
 }
 
-function buildManualContext({ note, set, question, answer, wrongItem }) {
+function buildManualContext({ note, set, question, answer, wrongItem, setAnswerSummary }) {
   return {
     contextKey: `manual:${note.id}:${set?.id || "note"}:${question?.id || "all"}`,
     note,
@@ -478,12 +482,58 @@ function buildManualContext({ note, set, question, answer, wrongItem }) {
           options: question.options,
           relatedNoteSection: question.relatedNoteSection,
           questionType: question.questionType
-        }
+      }
       : undefined,
+    questionSetProgress: setAnswerSummary?.progress,
+    questionSetAnswers: setAnswerSummary?.answers,
     answer: summarizeAnswerContext(answer),
     correctAnswer: question?.correctAnswer || question?.referenceAnswer,
     aiExplanation: answer?.aiTeaching || question?.explanation,
     wrongItem
+  };
+}
+
+function buildQuestionSetAnswerSummary(questions, answers, wrongItems) {
+  const answerMap = new Map(answers.map((answer) => [answer.questionId, answer]));
+  const wrongItemMap = new Map(wrongItems.map((item) => [item.questionId, item]));
+  const summarizedAnswers = questions.map((question) => {
+    const answer = answerMap.get(question.id);
+    const wrongItem = wrongItemMap.get(question.id);
+    return {
+      questionId: question.id,
+      order: question.order,
+      type: question.type,
+      questionType: question.questionType,
+      question: question.question,
+      relatedNoteSection: question.relatedNoteSection,
+      correctAnswer: question.correctAnswer || question.referenceAnswer,
+      explanation: question.explanation,
+      userAnswer: summarizeAnswerContext(answer),
+      wrongItem: wrongItem
+        ? {
+            errorReason: wrongItem.errorReason,
+            aiExplanation: wrongItem.aiExplanation,
+            mastered: wrongItem.mastered,
+            reviewCount: wrongItem.reviewCount
+          }
+        : undefined
+    };
+  });
+
+  const submitted = summarizedAnswers.filter((item) => item.userAnswer?.submitted).length;
+  const correct = summarizedAnswers.filter((item) => item.userAnswer?.isCorrect === true).length;
+  const wrong = summarizedAnswers.filter((item) => item.userAnswer?.isCorrect === false).length;
+  const withImageAnswers = summarizedAnswers.filter((item) => item.userAnswer?.hasImageAnswer).length;
+
+  return {
+    progress: {
+      totalQuestions: questions.length,
+      submitted,
+      correct,
+      wrong,
+      withImageAnswers
+    },
+    answers: summarizedAnswers
   };
 }
 

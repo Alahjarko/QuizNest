@@ -32,6 +32,26 @@ function pickNumber(...values) {
   return 0;
 }
 
+// 多模态消息中的 image_url 可能包含数 MB 的 base64 图片数据，
+// 这些不应影响 token 估算，也不会存入 IndexedDB（本函数只存 token 数）。
+// 将 base64 图片替换为简短占位符，避免估算值虚高。
+function stripImageUrlsFromMessages(messages) {
+  if (!Array.isArray(messages)) return messages;
+  return messages.map((msg) => {
+    if (typeof msg.content === "string") return msg;
+    if (!Array.isArray(msg.content)) return msg;
+    return {
+      ...msg,
+      content: msg.content.map((part) => {
+        if (part.type === "image_url" && part.image_url?.url?.startsWith("data:")) {
+          return { ...part, image_url: { url: "[image-stripped]" } };
+        }
+        return part;
+      })
+    };
+  });
+}
+
 function normalizeUsage(usage, messages, completion) {
   const promptTokens = pickNumber(usage?.prompt_tokens, usage?.promptTokens, usage?.input_tokens, usage?.inputTokens);
   const completionTokens = pickNumber(
@@ -52,7 +72,8 @@ function normalizeUsage(usage, messages, completion) {
     };
   }
 
-  const estimatedPrompt = estimateTokens(messages);
+  const strippedMessages = stripImageUrlsFromMessages(messages);
+  const estimatedPrompt = estimateTokens(strippedMessages);
   const estimatedCompletion = estimateTokens(completion);
   return {
     promptTokens: estimatedPrompt,

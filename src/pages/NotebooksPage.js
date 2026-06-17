@@ -98,17 +98,17 @@ export async function renderNotebooksPage(container, app) {
     button.addEventListener("click", () => app.navigate(`/note/${button.dataset.openNote}`));
   });
 
-  container.querySelectorAll("[data-move-note]").forEach((select) => {
-    select.addEventListener("change", async () => {
-      const note = await getNoteById(select.dataset.moveNote);
-      if (!note) return;
-      await put("notes", {
-        ...note,
-        notebookId: select.value || "",
-        updatedAt: nowIso()
-      });
-      showToast(select.value ? "笔记已收入笔记本" : "笔记已移出笔记本", "success");
-      app.refresh();
+  container.querySelectorAll("[data-archive-note]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const note = await getNoteById(button.dataset.archiveNote);
+      if (note) await openArchiveNoteModal(note, sortedNotebooks, app);
+    });
+  });
+
+  container.querySelectorAll("[data-delete-note]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const note = await getNoteById(button.dataset.deleteNote);
+      if (note) await openDeleteNoteModal(note, app);
     });
   });
 
@@ -156,29 +156,91 @@ function renderNotebookCard({ notebook, notes, allNotebooks, virtual = false }) 
   `;
 }
 
-function renderNotebookNote(note, allNotebooks) {
+function renderNotebookNote(note) {
   return `
     <div class="notebook-note-row">
       <button class="notebook-note-title" data-open-note="${escapeHtml(note.id)}" type="button">
         <strong>${escapeHtml(note.title || "未命名笔记")}</strong>
         <span>${escapeHtml(note.fileName || "Markdown 笔记")} · ${formatDateTime(note.updatedAt || note.createdAt)}</span>
       </button>
-      <label>
-        <span>归入</span>
-        <select data-move-note="${escapeHtml(note.id)}">
-          <option value="" ${!note.notebookId ? "selected" : ""}>未归档</option>
-          ${allNotebooks
-            .map(
-              (notebook) => `
-                <option value="${escapeHtml(notebook.id)}" ${note.notebookId === notebook.id ? "selected" : ""}>
-                  ${escapeHtml(notebook.title)}
-                </option>`
-            )
-            .join("")}
-        </select>
-      </label>
+      <div class="notebook-note-actions">
+        <button class="secondary-button" data-archive-note="${escapeHtml(note.id)}" type="button">归档</button>
+        <button class="danger-button" data-delete-note="${escapeHtml(note.id)}" type="button">删除</button>
+      </div>
     </div>
   `;
+}
+
+async function openArchiveNoteModal(note, notebooks, app) {
+  const modal = openModal({
+    title: "归档笔记",
+    content: `
+      <form class="notebook-modal-form" data-archive-note-form>
+        <label>
+          <span>归入笔记本</span>
+          <select name="notebookId">
+            <option value="" ${!note.notebookId ? "selected" : ""}>未归档</option>
+            ${notebooks
+              .map(
+                (notebook) => `
+                  <option value="${escapeHtml(notebook.id)}" ${note.notebookId === notebook.id ? "selected" : ""}>
+                    ${escapeHtml(notebook.title)}
+                  </option>`
+              )
+              .join("")}
+          </select>
+        </label>
+        <div class="form-actions">
+          <button class="secondary-button" type="button" data-cancel-modal>取消</button>
+          <button class="primary-button" type="submit">保存归档</button>
+        </div>
+      </form>`,
+    width: "480px"
+  });
+
+  modal.body.querySelector("[data-cancel-modal]").addEventListener("click", () => modal.close());
+  modal.body.querySelector("[data-archive-note-form]").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const notebookId = String(new FormData(event.currentTarget).get("notebookId") || "");
+    await put("notes", {
+      ...note,
+      notebookId,
+      updatedAt: nowIso()
+    });
+    showToast(notebookId ? "笔记已收入笔记本" : "笔记已移到未归档", "success");
+    modal.close();
+    app.refresh();
+  });
+}
+
+async function openDeleteNoteModal(note, app) {
+  const modal = openModal({
+    title: "删除笔记",
+    content: `
+      <div class="notebook-modal-form">
+        <p>确定删除“${escapeHtml(note.title || "未命名笔记")}”吗？相关题目、答题记录和错题不会自动删除。</p>
+        <div class="form-actions">
+          <button class="secondary-button" type="button" data-cancel-modal>取消</button>
+          <button class="danger-button" type="button" data-confirm-delete-note>删除笔记</button>
+        </div>
+      </div>`,
+    width: "520px"
+  });
+
+  modal.body.querySelector("[data-cancel-modal]").addEventListener("click", () => modal.close());
+  modal.body.querySelector("[data-confirm-delete-note]").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      await remove("notes", note.id);
+      showToast("笔记已删除", "success");
+      modal.close();
+      app.refresh();
+    } catch (error) {
+      button.disabled = false;
+      showToast(error.message || "删除失败", "error");
+    }
+  });
 }
 
 async function openRenameNotebookModal(notebook, app) {

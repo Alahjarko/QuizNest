@@ -1,4 +1,4 @@
-import { confirmAction } from "../components/Modal.js";
+import { openModal } from "../components/Modal.js";
 import { showToast } from "../components/Toast.js";
 import { APP_DESCRIPTION, APP_NAME } from "../config/appMeta.js";
 import { getAll, getSettings, put, remove } from "../services/storage/db.js";
@@ -39,14 +39,8 @@ export async function renderHomePage(container, app) {
   container.innerHTML = `
     <section class="page-header home-hero ${settings.homeHeroImageDataUrl ? "has-background" : ""}" data-home-hero>
       <div class="home-hero-copy">
-        <p class="eyebrow">${APP_NAME} Workspace</p>
         <h1>${APP_NAME}</h1>
         <p>${APP_DESCRIPTION} 所有学习记录默认保存在本机，适合长期维护自己的课程知识库。</p>
-        <div class="hero-meta-row" aria-label="产品能力">
-          <span>Markdown 笔记</span>
-          <span>本地数据</span>
-          <span>AI 出题与判题</span>
-        </div>
         <div class="page-actions">
           <label class="primary-button file-button">
             上传 .md 笔记
@@ -223,11 +217,39 @@ export async function renderHomePage(container, app) {
 
   container.querySelectorAll("[data-delete-note]").forEach((button) => {
     button.addEventListener("click", async () => {
-      if (!confirmAction("确定删除这份笔记？相关题目和错题不会自动删除。")) return;
-      await remove("notes", button.dataset.deleteNote);
-      showToast("笔记已删除", "success");
-      app.refresh();
+      const note = notes.find((item) => item.id === button.dataset.deleteNote);
+      if (note) await openDeleteNoteModal(note, app);
     });
+  });
+}
+
+async function openDeleteNoteModal(note, app) {
+  const modal = openModal({
+    title: "删除笔记",
+    content: `
+      <div class="notebook-modal-form">
+        <p>确定删除“${escapeHtml(note.title || "未命名笔记")}”吗？相关题目、答题记录和错题不会自动删除。</p>
+        <div class="form-actions">
+          <button class="secondary-button" type="button" data-cancel-modal>取消</button>
+          <button class="danger-button" type="button" data-confirm-delete-note>删除笔记</button>
+        </div>
+      </div>`,
+    width: "520px"
+  });
+
+  modal.body.querySelector("[data-cancel-modal]").addEventListener("click", () => modal.close());
+  modal.body.querySelector("[data-confirm-delete-note]").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      await remove("notes", note.id);
+      showToast("笔记已删除", "success");
+      modal.close();
+      app.refresh();
+    } catch (error) {
+      button.disabled = false;
+      showToast(error.message || "删除失败", "error");
+    }
   });
 }
 

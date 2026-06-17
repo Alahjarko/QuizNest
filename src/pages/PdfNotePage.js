@@ -1,6 +1,7 @@
-import { buildPdfNoteMessages, normalizePdfNoteResult } from "../prompts/pdfNote.js";
+import { buildPdfNoteMessages, buildVisionNoteMessages, normalizePdfNoteResult } from "../prompts/pdfNote.js";
 import { callJsonCompletion } from "../services/ai/aiClient.js";
 import { extractPdfText } from "../services/pdfText.js";
+import { extractPptxSlides } from "../services/pptxText.js";
 import { getAll, put } from "../services/storage/db.js";
 import { startElapsedTimer } from "../utils/elapsedTimer.js";
 import { createId, nowIso } from "../utils/ids.js";
@@ -15,9 +16,9 @@ export async function renderPdfNotePage(container, app) {
   container.innerHTML = `
     <section class="page-header hero-panel">
       <div>
-        <p class="eyebrow">PDF 入笔记</p>
-        <h1>从 PDF 生成 Markdown 笔记</h1>
-        <p>上传 PDF 后只抽取文本交给笔记模型整理，不保存 PDF 文件。生成的 .md 笔记会收入指定笔记本。</p>
+        <p class="eyebrow">文档入笔记</p>
+        <h1>从 PDF 或 PPT 生成 Markdown 笔记</h1>
+        <p>PDF 会提取文本整理；PowerPoint（.pptx）会渲染每页幻灯片，让多模态笔记模型直接读图。不保存原始文件，生成的 .md 笔记会收入指定笔记本。</p>
       </div>
     </section>
 
@@ -31,8 +32,8 @@ export async function renderPdfNotePage(container, app) {
         </div>
 
         <label>
-          <span>PDF 文件</span>
-          <input name="pdfFile" type="file" accept="application/pdf,.pdf" required />
+          <span>PDF / PowerPoint 文件</span>
+          <input name="pdfFile" type="file" accept="application/pdf,.pdf,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" required />
         </label>
 
         <div class="form-grid">
@@ -57,7 +58,7 @@ export async function renderPdfNotePage(container, app) {
         </label>
 
         <div class="status-box" data-pdf-note-status>
-          生成时会先在本地解析 PDF 文本，再调用“笔记模型”。如果 PDF 是扫描版图片，需要先 OCR 后再导入。
+          PDF 会提取文本后调用笔记模型整理；PPT 会将每页渲染为图片，调用多模态模型直接读图，可识别公式、推导和图解。原始文件不会保存。
         </div>
 
         <div class="form-actions">
@@ -96,30 +97,67 @@ export async function renderPdfNotePage(container, app) {
     const status = form.querySelector("[data-pdf-note-status]");
     const submitButton = form.querySelector("button[type='submit']");
     submitButton.disabled = true;
-    status.textContent = "解析 PDF 中...";
+    status.textContent = "解析文档中...";
 
     let elapsedTimer = null;
     try {
-      const pdf = await extractPdfText(file);
-      status.textContent = pdf.truncated
-        ? `已提取 ${pdf.pageCount} 页文本，因内容较长已取 ${pdf.usedCharCount} 字用于生成。`
-        : `已提取 ${pdf.pageCount} 页、约 ${pdf.usedCharCount} 字文本。`;
-      elapsedTimer = startElapsedTimer(status, "做笔记中");
-
+      const isPptx =
+        /\.pptx$/i.test(file.name) || file.type.includes("presentationml.presentation");
       const guidance = String(formData.get("guidance") || "").trim();
-      const raw = await callJsonCompletion({
-        role: "note",
-        messages: buildPdfNoteMessages({
-          pdfText: pdf.text,
-          fileName: pdf.fileName,
-          pageCount: pdf.pageCount,
-          guidance,
-          truncated: pdf.truncated
-        }),
-        temperature: 0.25,
-        timeoutMs: 300000
-      });
-      const noteResult = normalizePdfNoteResult(raw, titleFromFile(pdf.fileName));
+
+      // ===== PDF 路径：文本抽取 → 文本模型 =====
+      // ===== PPT 路径：整页渲染 PNG → 多模态模型直接读图 =====
+      let noteResult;
+      let sourceFileName;
+
+      if (isPptx) {
+        const pptxData = await extractPptxSlides(file);
+        sourceFileName = pptxData.fileName;
+        status.textContent = `已渲染 ${pptxData.pageCount} 张幻灯片为图片，准备调用多模态笔记模型...`;
+        elapsedTimer = startElapsedTimer(status, "调用多模态模型做笔记中");
+
+        // 将 extractPptxSlides 返回的扁平格式适配为 buildVisionNoteMessages 期望的格式
+        const slides = pptxData.slides.map((s) => ({
+          pageNumber: s.pageNumber,
+          title: s.title,
+          images: [{ dataUrl: s.dataUrl }]
+        }));
+
+        const raw = await callJsonCompletion({
+          role: "note",
+          messages: buildVisionNoteMessages({
+            slides,
+            fileName: pptxData.fileName,
+            pageCount: pptxData.pageCount,
+            guidance
+          }),
+          temperature: 0.25,
+          timeoutMs: 300000
+        });
+        noteResult = normalizePdfNoteResult(raw, titleFromFile(pptxData.fileName));
+      } else {
+        const doc = await extractPdfText(file);
+        sourceFileName = doc.fileName;
+        status.textContent = doc.truncated
+          ? `已提取 ${doc.pageCount} 页文本，因内容较长已取 ${doc.usedCharCount} 字用于生成。`
+          : `已提取 ${doc.pageCount} 页、约 ${doc.usedCharCount} 字文本。`;
+        elapsedTimer = startElapsedTimer(status, "做笔记中");
+
+        const raw = await callJsonCompletion({
+          role: "note",
+          messages: buildPdfNoteMessages({
+            pdfText: doc.text,
+            fileName: doc.fileName,
+            pageCount: doc.pageCount,
+            guidance,
+            truncated: doc.truncated
+          }),
+          temperature: 0.25,
+          timeoutMs: 300000
+        });
+        noteResult = normalizePdfNoteResult(raw, titleFromFile(doc.fileName));
+      }
+
       const notebookId = await resolveNotebookId({
         selectedNotebookId: String(formData.get("notebookId") || ""),
         newNotebookTitle: String(formData.get("newNotebookTitle") || "").trim()
@@ -127,7 +165,7 @@ export async function renderPdfNotePage(container, app) {
       const noteId = createId("note");
       const createdAt = nowIso();
       const markdown = noteResult.markdown;
-      const title = noteResult.title || getNoteTitle(`${titleFromFile(pdf.fileName)}.md`, markdown);
+      const title = noteResult.title || getNoteTitle(`${titleFromFile(sourceFileName)}.md`, markdown);
 
       await put("notes", {
         id: noteId,
@@ -136,8 +174,8 @@ export async function renderPdfNotePage(container, app) {
         content: markdown,
         sections: parseMarkdownSections(markdown),
         notebookId,
-        sourceType: "pdf-generated",
-        sourcePdfName: pdf.fileName,
+        sourceType: isPptx ? "pptx-generated" : "pdf-generated",
+        sourceFileName,
         notePrompt: guidance,
         exampleSource: noteResult.exampleSource,
         createdAt,
@@ -146,7 +184,7 @@ export async function renderPdfNotePage(container, app) {
 
       elapsedTimer?.stop();
       status.innerHTML = `
-        已生成笔记“${escapeHtml(title)}”。PDF 文件未保存，只保存了生成后的 Markdown 笔记。
+        已生成笔记“${escapeHtml(title)}”。原始文件未保存，只保存了生成后的 Markdown 笔记。
         <div class="form-actions status-actions">
           <button class="primary-button" type="button" data-open-created-note>打开笔记</button>
           <button class="secondary-button" type="button" data-create-another>继续生成</button>
@@ -184,9 +222,10 @@ function showSuccess(app, title) {
 }
 
 function titleFromFile(fileName) {
-  return String(fileName || "PDF 生成笔记")
+  return String(fileName || "生成笔记")
     .replace(/\.pdf$/i, "")
-    .trim() || "PDF 生成笔记";
+    .replace(/\.pptx$/i, "")
+    .trim() || "生成笔记";
 }
 
 function safeFileBase(title) {

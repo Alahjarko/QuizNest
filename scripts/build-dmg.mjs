@@ -37,6 +37,52 @@ function findDmgBundle() {
   return dmgName ? path.join(dmgBundleDir, dmgName) : "";
 }
 
+function signAppBundle(appBundle) {
+  const signStatus = run("codesign", [
+    "--force",
+    "--deep",
+    "--sign",
+    "-",
+    "--timestamp=none",
+    appBundle
+  ]);
+  if (signStatus !== 0) {
+    throw new Error("macOS app 签名失败。");
+  }
+
+  const verifyStatus = run("codesign", [
+    "--verify",
+    "--deep",
+    "--strict",
+    "--verbose=2",
+    appBundle
+  ]);
+  if (verifyStatus !== 0) {
+    throw new Error("macOS app 签名校验失败。");
+  }
+}
+
+function createDmgFromApp(appBundle) {
+  stagingDir = fs.mkdtempSync(path.join(os.tmpdir(), "quiznest-dmg-"));
+  fs.cpSync(appBundle, path.join(stagingDir, `${productName}.app`), { recursive: true });
+  fs.symlinkSync("/Applications", path.join(stagingDir, "Applications"), "dir");
+
+  const dmgStatus = run("hdiutil", [
+    "create",
+    "-volname",
+    productName,
+    "-srcfolder",
+    stagingDir,
+    "-ov",
+    "-format",
+    "UDZO",
+    outputDmg
+  ]);
+  if (dmgStatus !== 0) {
+    throw new Error("DMG 生成失败。");
+  }
+}
+
 function cleanBuildCache() {
   if (process.env.QUIZNEST_CLEAN_BUILD_CACHE === "1") {
     fs.rmSync(targetDir, { recursive: true, force: true });
@@ -68,29 +114,10 @@ try {
 
   const builtInDmg = findDmgBundle();
   if (builtInDmg) {
-    const tempOutputDmg = `${outputDmg}.tmp`;
-    fs.copyFileSync(builtInDmg, tempOutputDmg);
-    fs.renameSync(tempOutputDmg, outputDmg);
-  } else {
-    stagingDir = fs.mkdtempSync(path.join(os.tmpdir(), "quiznest-dmg-"));
-    fs.cpSync(appBundle, path.join(stagingDir, `${productName}.app`), { recursive: true });
-    fs.symlinkSync("/Applications", path.join(stagingDir, "Applications"), "dir");
-
-    const dmgStatus = run("hdiutil", [
-      "create",
-      "-volname",
-      productName,
-      "-srcfolder",
-      stagingDir,
-      "-ov",
-      "-format",
-      "UDZO",
-      outputDmg
-    ]);
-    if (dmgStatus !== 0) {
-      throw new Error("DMG 生成失败。");
-    }
+    console.log(`忽略 Tauri 自带 DMG，改用重新签名后的 .app 制作安装包：${builtInDmg}`);
   }
+  signAppBundle(appBundle);
+  createDmgFromApp(appBundle);
 
   console.log(`已生成安装包：${outputDmg}`);
 } finally {

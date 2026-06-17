@@ -23,7 +23,7 @@ function tauriListen(event, handler) {
 /**
  * 非流式调用 chat completions
  */
-export async function chatCompletions({ baseUrl, apiKey, model, messages, temperature, timeoutMs, responseFormat }) {
+export async function chatCompletions({ baseUrl, apiKey, model, messages, temperature, timeoutMs, enableThinking, responseFormat }) {
     if (isTauri) {
         const result = await tauriInvoke("chat_completions", {
             request: {
@@ -33,6 +33,7 @@ export async function chatCompletions({ baseUrl, apiKey, model, messages, temper
                 messages: messages,
                 temperature: temperature ?? 0.2,
                 timeout_ms: timeoutMs,
+                enable_thinking: enableThinking !== false,
                 response_format: responseFormat
             }
         });
@@ -50,6 +51,7 @@ export async function chatCompletions({ baseUrl, apiKey, model, messages, temper
             messages,
             temperature,
             timeoutMs,
+            enableThinking: enableThinking !== false,
             response_format: responseFormat
         })
     });
@@ -60,7 +62,7 @@ export async function chatCompletions({ baseUrl, apiKey, model, messages, temper
 /**
  * 流式调用 chat completions
  */
-export async function chatCompletionsStream({ baseUrl, apiKey, model, messages, temperature, timeoutMs, onToken, onError, onDone, signal }) {
+export async function chatCompletionsStream({ baseUrl, apiKey, model, messages, temperature, timeoutMs, enableThinking, onToken, onError, onDone, signal }) {
     if (isTauri) {
         let fullText = "";
         let unlistenToken = null;
@@ -113,6 +115,7 @@ export async function chatCompletionsStream({ baseUrl, apiKey, model, messages, 
                     model: model,
                     messages: messages,
                     temperature: temperature ?? 0.4,
+                    enable_thinking: enableThinking !== false,
                     timeout_ms: timeoutMs
                 }
             });
@@ -143,7 +146,8 @@ export async function chatCompletionsStream({ baseUrl, apiKey, model, messages, 
             model,
             messages,
             temperature,
-            timeoutMs
+            timeoutMs,
+            enableThinking: enableThinking !== false
         }),
         signal
     });
