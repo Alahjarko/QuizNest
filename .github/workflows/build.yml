@@ -74,9 +74,24 @@ jobs:
       - name: Install Tauri CLI
         run: cargo install tauri-cli --version 2.11.2 --locked
 
+      - name: Remove stale Windows bundles
+        shell: pwsh
+        working-directory: src-tauri
+        run: Remove-Item -Recurse -Force target/release/bundle -ErrorAction SilentlyContinue
+
       - name: Build NSIS installer
         working-directory: src-tauri
         run: cargo tauri build --bundles nsis --ci
+
+      - name: Verify a single Windows installer was built
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem "src-tauri/target/release/bundle/nsis/*.exe")
+          if ($installers.Count -ne 1) {
+            $installers | ForEach-Object { Write-Host $_.FullName }
+            throw "Expected exactly one Windows installer, found $($installers.Count)."
+          }
+          Write-Host "Installer: $($installers[0].FullName)"
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
