@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f6f8f5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f1512" media="(prefers-color-scheme: dark)" />
+    <title>QuizNest</title>
+    <script>
+      // 首屏前同步应用主题偏好，避免加载样式后闪烁（FOUC）。
+      // 与 src/services/theme.js 的逻辑保持一致。
+      (function () {
+        try {
+          var pref = localStorage.getItem("quiznest:theme");
+          var allowed = { light: 1, dark: 1, auto: 1 };
+          if (!allowed[pref]) pref = "auto";
+          var dark =
+            pref === "dark" ||
+            (pref === "auto" &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          var root = document.documentElement;
+          root.classList.add(dark ? "dark" : "light");
+        } catch (e) {
+          /* localStorage 不可用时使用默认浅色 */
+        }
+      })();
+    </script>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="toast-root" aria-live="polite"></div>
+    <div id="chat-root"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

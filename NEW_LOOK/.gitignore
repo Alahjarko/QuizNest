@@ -1,0 +1,71 @@
+# macOS / local editor noise
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.local
+*.key
+*.pem
+*.p12
+*.mobileprovision
+*.keystore
+key.properties
+keystore.properties
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Frontend output
+dist/
+
+# Rust / Tauri build cache
+src-tauri/target/
+src-tauri/.tauri/
+src-tauri/gen/schemas/
+
+# Android generated build cache
+src-tauri/gen/android/.gradle/
+src-tauri/gen/android/**/.gradle/
+src-tauri/gen/android/**/build/
+src-tauri/gen/android/**/.externalNativeBuild/
+src-tauri/gen/android/**/.cxx/
+src-tauri/gen/android/**/local.properties
+src-tauri/gen/android/**/key.properties
+src-tauri/gen/android/**/keystore.properties
+src-tauri/gen/android/app/src/main/jniLibs/
+src-tauri/gen/android/app/src/main/assets/tauri.conf.json
+src-tauri/gen/android/app/src/main/java/com/quiznest/app/generated/
+src-tauri/gen/android/app/tauri.build.gradle.kts
+src-tauri/gen/android/app/proguard-tauri.pro
+src-tauri/gen/android/app/tauri.properties
+src-tauri/gen/android/tauri.settings.gradle
+
+# Build artifacts / installers
+release/
+*.dmg
+*.apk
+*.apk.idsig
+*.aab
+*.msi
+*.exe
+*.AppImage
+*.deb
+*.rpm
+*.zip
+*.tar.gz
+
+# Logs and reports
+*.log
+coverage/
+reports/
+output/
