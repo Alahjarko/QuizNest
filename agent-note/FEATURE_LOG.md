@@ -573,3 +573,54 @@
 - `node --check`、`npm run sync-dist` 和 `git diff --check` 通过。
 - 应用内浏览器验证 248px/72px 模式切换、刷新持久化、当前页高亮和折叠态用户菜单正常。
 - 720px 窄屏下无横向溢出，导航文字正常显示；浏览器控制台无错误。
+
+### 2026-06-20 / ZCode / Qwen3.7-max
+
+完成内容（侧边栏过渡与主内容淡入动画）：
+
+- 修复侧边栏切换时文字换行生硬的问题：所有侧边栏文字元素（品牌文案、导航标签、设置文案、笔记本标题）增加 `white-space: nowrap`，配合 `.app-sidebar` 的 `overflow: hidden`，实现单行裁剪滑出效果而非换行。
+- 侧边栏标签元素的 `transition` 从 `opacity/visibility 120ms` 扩展为包含 `width/min-width`，时长统一为 `var(--sidebar-transition)`（190ms），使标签宽度收缩与侧边栏轨道变化同步，消除 snap 跳变。
+- 新增 `@keyframes sidebar-content-fade` 动画：侧边栏切换时主内容区短暂降低透明度（0.35）再淡入，掩盖文字重排的离散跳变。动画 250ms ease，延迟 80ms 启动，`animation-fill-mode: backwards` 使延迟期间保持低透明度。
+- JS 侧 `applySidebarMode` 在切换 class 前给 `.app-main` 添加 `sidebar-transitioning` 类，280ms 后移除，协调 CSS 动画与 grid 过渡。
+- `@media (prefers-reduced-motion: reduce)` 中禁用该动画。
+
+涉及文件：
+
+- `src/styles.css`（`.app-sidebar` overflow、标签 white-space/transition 扩展、`.sidebar-section-title` nowrap、新增 keyframe 和 `.app-main.sidebar-transitioning` 规则）
+- `src/components/AppLayout.js`（`applySidebarMode` 添加 transitioning 类管理）
+
+验证：
+
+- `node --check src/components/AppLayout.js` 通过。
+- `npm run sync-dist` 通过。
+- CSS 大括号配平（1011/1011）。
+- 本地 Apple Silicon DMG 构建成功：`QuizNest_0.1.6_aarch64.dmg`（3.9 MB）。
+
+### 2026-06-20 / ZCode / Qwen3.7-max
+
+完成内容（主内容区交叉淡入转场 —— 替换前次闪烁方案）：
+
+- **问题**：前次方案用 `.app-main.sidebar-transitioning` 短暂降透明度（0.35→1，250ms），用户反馈"像页面闪了一下"，不优雅。原因是同一元素变透明度，时间太短显得突兀。
+- **新方案**：改用浏览器原生 View Transitions API。切换侧边栏时，对 `.app-main` 拍下旧画面快照，DOM 更新（更宽、文字已重排）后新画面交叉淡入。因为是新旧两层快照交叉，是"平滑转场"而非"闪烁"。
+- **JS**：`applySidebarMode` 用 `document.startViewTransition(() => applyDomChanges())` 包裹切换；不支持时降级为直接切换（侧边栏自身的 grid 过渡仍生效）。
+- **CSS**：给 `.app-main` 设 `view-transition-name: main-content`，让它独立成为转场目标；侧边栏未命名 `view-transition-name`，不参与快照，继续走自身的 `grid-template-columns` 190ms 过渡。自定义交叉淡入：旧快照 260ms 淡出、新快照 320ms 淡入（错开时长让交叉更柔和）。`@media (prefers-reduced-motion: reduce)` 中禁用转场动画。
+- 清理了前次方案的遗留：移除 `@keyframes sidebar-content-fade`、`.app-main.sidebar-transitioning` 规则及 JS 中的 transitioning 类管理代码。
+
+涉及文件：
+
+- `src/styles.css`（`.app-main` 加 `view-transition-name`、新增 `::view-transition-old/new(main-content)` 规则与 keyframes、reduced-motion 块补禁用）
+- `src/components/AppLayout.js`（`applySidebarMode` 改用 `startViewTransition` 包裹 + 降级）
+
+验证：
+
+- `node --check src/components/AppLayout.js` 通过。
+- `npm run sync-dist` 通过。
+- CSS 大括号配平（1013/1013）。
+- 本地 Apple Silicon DMG 构建成功：`QuizNest_0.1.6_aarch64.dmg`（3.9 MB）。
+
+注意事项（给 Codex）：
+
+- View Transitions API 需要 macOS 14.4+ / Safari 18+（WKWebView）。Tauri 在 macOS 上用系统 WKWebView，用户的 macOS 26 原生支持；老系统会降级为直接切换（侧边栏 grid 过渡仍有效，只是主内容区无转场）。
+- 只对 `.app-main` 命名了 view-transition-name，刻意不让侧边栏参与快照——否则侧边栏会被拍成静态图层，破坏它自身的平滑过渡。
+
+

@@ -156,15 +156,26 @@ export function bindAppLayout(root, { navigate }) {
   const applySidebarMode = (mode) => {
     if (!shell || !collapseToggle) return;
     const collapsed = mode === SIDEBAR_MODE_COLLAPSED;
-    shell.classList.toggle("sidebar-collapsed", collapsed);
-    shell.dataset.sidebarMode = collapsed ? SIDEBAR_MODE_COLLAPSED : SIDEBAR_MODE_EXPANDED;
-    collapseToggle.setAttribute("aria-pressed", String(collapsed));
-    collapseToggle.setAttribute("aria-label", collapsed ? "展开侧边栏" : "收起侧边栏");
-    collapseToggle.setAttribute("title", collapsed ? "展开侧边栏" : "收起侧边栏");
-    collapseToggle.innerHTML = icon(collapsed ? "panel-left-open" : "panel-left-close");
-    writeSidebarMode(collapsed ? SIDEBAR_MODE_COLLAPSED : SIDEBAR_MODE_EXPANDED);
-    closeMenu();
-    hideTooltip();
+
+    const applyDomChanges = () => {
+      shell.classList.toggle("sidebar-collapsed", collapsed);
+      shell.dataset.sidebarMode = collapsed ? SIDEBAR_MODE_COLLAPSED : SIDEBAR_MODE_EXPANDED;
+      collapseToggle.setAttribute("aria-pressed", String(collapsed));
+      collapseToggle.setAttribute("aria-label", collapsed ? "展开侧边栏" : "收起侧边栏");
+      collapseToggle.setAttribute("title", collapsed ? "展开侧边栏" : "收起侧边栏");
+      collapseToggle.innerHTML = icon(collapsed ? "panel-left-open" : "panel-left-close");
+      writeSidebarMode(collapsed ? SIDEBAR_MODE_COLLAPSED : SIDEBAR_MODE_EXPANDED);
+      closeMenu();
+      hideTooltip();
+    };
+
+    // 用 View Transitions API 让主内容区新旧画面交叉淡入，掩盖文字重排。
+    // 不支持的浏览器降级为直接切换（侧边栏自身的 grid 过渡仍生效）。
+    if (document.startViewTransition) {
+      document.startViewTransition(() => applyDomChanges());
+    } else {
+      applyDomChanges();
+    }
   };
 
   root.querySelectorAll("[data-nav]").forEach((button) => {
