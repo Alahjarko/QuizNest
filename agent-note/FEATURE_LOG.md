@@ -623,4 +623,26 @@
 - View Transitions API 需要 macOS 14.4+ / Safari 18+（WKWebView）。Tauri 在 macOS 上用系统 WKWebView，用户的 macOS 26 原生支持；老系统会降级为直接切换（侧边栏 grid 过渡仍有效，只是主内容区无转场）。
 - 只对 `.app-main` 命名了 view-transition-name，刻意不让侧边栏参与快照——否则侧边栏会被拍成静态图层，破坏它自身的平滑过渡。
 
+### 2026-06-20 / Antigravity / Gemini 3.5 Flash (High)
 
+完成内容（Android 安装包图标修复与 v0.1.8 版本号升级）：
+
+- **Android 图标生成与覆盖**：定位并修复了安卓打包出来是 Tauri 默认蓝色图标的问题。使用 `cargo tauri icon src-tauri/icons/512x512.png` 重新生成了所有平台的图标资源，自动将遗留的初始默认图标替换为最新的 QuizNest 软件图标。文件覆盖写入至 `src-tauri/gen/android/app/src/main/res/mipmap-*` 并包含了自适应图标配置与 XML。
+- **版本号升级至 v0.1.8**：将应用版本从 `0.1.7` 提升到 `0.1.8` 以便触发 GitHub Action 自动构建包含新图标的全新发行版。同步修改了 `package.json`、`tauri.conf.json`、`Cargo.toml` 以及利用 `cargo check` 同步更新了 `Cargo.lock`。
+- **发布构建**：本地提交后，将 `main` 分支成功 push 至远程 `origin`。并在本地创建了 `v0.1.8` tag 推送到远程 `origin`，自动触发 GitHub Actions 编译 Windows NSIS 和 Android arm64-v8a APK。
+
+涉及文件：
+
+- `package.json`（版本号 bump 至 0.1.8）
+- `src-tauri/tauri.conf.json`（版本号 bump 至 0.1.8）
+- `src-tauri/Cargo.toml`（版本号 bump 至 0.1.8）
+- `src-tauri/Cargo.lock`（同步更新版本号）
+- `src-tauri/gen/android/` 目录下的 15 个 png 资源及 XML 配置（更新为新版 QuizNest 软件图标）
+- `src-tauri/icons/` 目录下的桌面与 iOS 平台全套图标资源（重新生成）
+
+验证：
+
+- 运行 `cargo check` 确认 Rust 后端编译与 `Cargo.lock` 生成正常。
+- 成功推送远程 `main` 及 `v0.1.8` tag。
+- 本地工作区目前处于干净状态（nothing to commit, working tree clean）。
+- 提交号：`6b17395` (Android 图标生成提交), `7a98fe0` (Prepare v0.1.8 release)
