@@ -27,13 +27,14 @@ const activeHeatmapModes = { ...DEFAULT_HEATMAP_MODES };
 
 export async function renderStatsPage(container, app) {
   app.setContext({ contextKey: "stats" });
-  const [profile, studyDays, usageRecords, notes, sets, questions, wrongItems, chatMessages] = await Promise.all([
+  const [profile, studyDays, usageRecords, notes, sets, questions, answers, wrongItems, chatMessages] = await Promise.all([
     getProfile(),
     getAll("studyDays"),
     getModelUsageRecords(),
     getAll("notes"),
     getAll("questionSets"),
     getAll("questions"),
+    getAll("answers"),
     getAll("wrongItems"),
     getAll("chatMessages")
   ]);
@@ -42,7 +43,6 @@ export async function renderStatsPage(container, app) {
   const studyMap = new Map(studyDays.map((day) => [day.date, day]));
   const usageByDate = groupUsageByDate(usageRecords);
   const modelRows = buildModelRows(usageRecords);
-  const todayStudy = studyMap.get(todayDate) || {};
   const tokenMode = activeHeatmapModes.token || DEFAULT_HEATMAP_MODES.token;
   const practiceMode = activeHeatmapModes.practice || DEFAULT_HEATMAP_MODES.practice;
   const totalTokens = usageRecords.reduce((sum, item) => sum + Number(item.totalTokens || 0), 0);
@@ -53,12 +53,29 @@ export async function renderStatsPage(container, app) {
   const estimatedUsageRate = usageRecords.length
     ? Math.round((usageRecords.filter((item) => item.estimated).length / usageRecords.length) * 100)
     : 0;
+  const recentDates = buildRecentDays(7);
+  const recentPractice = sumRecent(studyMap, recentDates, 7, "practicedQuestions");
+  const recentCorrect = sumRecent(studyMap, recentDates, 7, "correctAnswers");
+  const recentStudyMs = sumRecent(studyMap, recentDates, 7, "studyMs");
+  const recentAccuracy = recentPractice ? Math.round((recentCorrect / recentPractice) * 100) : null;
+  const openWrongItems = wrongItems.filter((item) => !item.mastered);
+  const weakSections = buildWeakSectionRows(openWrongItems);
+  const typeAccuracyRows = buildQuestionTypeAccuracy(questions, answers);
+  const activeNotes = buildActiveNoteRows(notes, sets, answers);
+  const chatTopics = buildChatTopicRows(notes, chatMessages);
 
   container.innerHTML = `
-    <section class="profile-page">
-      <div class="profile-page-title">个人资料</div>
-      <section class="profile-hero-profile">
-        <div class="profile-avatar-block">
+    <section class="profile-page learning-insight-page">
+      <header class="learning-insight-header">
+        <div>
+          <p class="page-kicker">Learning Insight</p>
+          <h1>学习洞察</h1>
+          <p>从练习、错题和解惑记录中看清近期进展。所有统计只保存在本机。</p>
+        </div>
+      </header>
+
+      <section class="insight-profile-header">
+        <div class="profile-avatar-block compact-profile-avatar">
           <label class="profile-avatar-control" title="选择本地头像">
             ${renderAvatar(profile)}
             <input data-profile-avatar type="file" accept="image/*" hidden />
@@ -73,7 +90,7 @@ export async function renderStatsPage(container, app) {
         </div>
         <form class="profile-name-form" data-profile-form>
           <h1>${escapeHtml(profile.displayName)}</h1>
-          <p>本地个人资料 · 只保存在这台设备上</p>
+          <p>本地学习档案</p>
           <div class="profile-name-row">
             <label>
               <span>显示名称</span>
@@ -84,90 +101,124 @@ export async function renderStatsPage(container, app) {
         </form>
       </section>
 
-      <section class="profile-metric-strip">
-        <div><strong>${formatCompact(totalTokens)}</strong><span>累计 Token 数</span></div>
-        <div><strong>${formatCompact(peakTokens)}</strong><span>峰值 Token 数</span></div>
+      <section class="profile-metric-strip learning-metric-strip">
         <div><strong>${formatDuration(totalStudyMs)}</strong><span>累计学习时长</span></div>
-        <div><strong>${streaks.current}</strong><span>当前连续天数</span></div>
-        <div><strong>${streaks.longest}</strong><span>最长连续天数</span></div>
+        <div><strong>${streaks.current} 天</strong><span>当前连续学习</span></div>
+        <div><strong>${formatCompact(totalQuestions)}</strong><span>累计完成题目</span></div>
+        <div><strong>${openWrongItems.length}</strong><span>未掌握错题</span></div>
       </section>
 
-      <section class="profile-activity-card">
+      <section class="learning-week-summary">
+        <div>
+          <p class="eyebrow">Last 7 Days</p>
+          <h2>最近 7 天</h2>
+          <p>${recentPractice ? `完成 ${recentPractice} 道题，正确率 ${recentAccuracy}%` : "还没有做题记录"}。累计学习 ${formatDuration(recentStudyMs)}。</p>
+        </div>
+        <div class="week-summary-metrics">
+          <span><strong>${recentPractice}</strong> 做题</span>
+          <span><strong>${recentAccuracy === null ? "--" : `${recentAccuracy}%`}</strong> 正确率</span>
+          <span><strong>${streaks.longest} 天</strong> 最长连续</span>
+        </div>
+      </section>
+
+      <section class="profile-activity-card learning-primary-heatmap">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">Token Activity</p>
-            <h2>Token 活动</h2>
+            <p class="eyebrow">Practice Activity</p>
+            <h2>做题活动</h2>
+            <p>查看每日、本月或累计练习节奏。</p>
           </div>
-          ${renderHeatmapModeTabs("token", tokenMode)}
+          ${renderHeatmapModeTabs("practice", practiceMode)}
         </div>
         ${renderMetricHeatmap({
-          mode: tokenMode,
-          kind: "token",
-          dailyMap: usageByDate,
-          valueKey: "totalTokens",
+          mode: practiceMode,
+          kind: "practice",
+          dailyMap: studyMap,
+          valueKey: "practicedQuestions",
           todayDate
         })}
       </section>
 
-      <section class="profile-lower-grid">
+      <section class="learning-analysis-grid">
         <article class="profile-activity-card">
           <div class="section-heading">
             <div>
-              <p class="eyebrow">Practice Activity</p>
-              <h2>做题活动</h2>
+              <p class="eyebrow">Weak Sections</p>
+              <h2>薄弱章节</h2>
             </div>
-            ${renderHeatmapModeTabs("practice", practiceMode)}
           </div>
-          ${renderMetricHeatmap({
-            mode: practiceMode,
-            kind: "practice",
-            dailyMap: studyMap,
-            valueKey: "practicedQuestions",
-            todayDate
-          })}
+          ${renderWeakSections(weakSections)}
         </article>
 
         <article class="profile-activity-card">
           <div class="section-heading">
             <div>
-              <p class="eyebrow">Insight</p>
-              <h2>活动洞察</h2>
+              <p class="eyebrow">Question Types</p>
+              <h2>题型正确率</h2>
             </div>
           </div>
-          <div class="insight-list">
-            <div><span>今日做题</span><strong>${Number(todayStudy.practicedQuestions || 0)}</strong></div>
-            <div><span>近 7 日做题</span><strong>${sumRecent(studyMap, buildRecentDays(7), 7, "practicedQuestions")}</strong></div>
-            <div><span>笔记总数</span><strong>${notes.length}</strong></div>
-            <div><span>题组总数</span><strong>${sets.length}</strong></div>
-            <div><span>题目总数</span><strong>${questions.length}</strong></div>
-            <div><span>未掌握错题</span><strong>${wrongItems.filter((item) => !item.mastered).length}</strong></div>
-            <div><span>解惑消息</span><strong>${chatMessages.length}</strong></div>
-            <div><span>估算 Token 占比</span><strong>${estimatedUsageRate}%</strong></div>
-          </div>
+          ${renderQuestionTypeAccuracy(typeAccuracyRows)}
         </article>
       </section>
 
-      <section class="profile-lower-grid">
+      <section class="learning-analysis-grid">
         <article class="profile-activity-card">
           <div class="section-heading">
             <div>
-              <p class="eyebrow">Models</p>
-              <h2>常用模型</h2>
+              <p class="eyebrow">Most Practiced</p>
+              <h2>最常练习笔记</h2>
             </div>
           </div>
-          ${renderTopModels(modelRows)}
+          ${renderRankedRows(activeNotes, "还没有可统计的笔记练习。")}
         </article>
 
         <article class="profile-activity-card">
           <div class="section-heading">
             <div>
-              <p class="eyebrow">Study Log</p>
-              <h2>最近学习日</h2>
+              <p class="eyebrow">Tutor Focus</p>
+              <h2>解惑集中内容</h2>
             </div>
           </div>
-          ${renderRecentDays(studyDays, usageByDate)}
+          ${renderRankedRows(chatTopics, "还没有带笔记上下文的解惑记录。")}
         </article>
       </section>
+
+      <details class="token-usage-disclosure">
+        <summary>
+          <span><strong>模型用量</strong><small>Token 活动、常用模型与最近学习日</small></span>
+          <span>${formatCompact(totalTokens)} Token</span>
+        </summary>
+        <div class="token-usage-body">
+          <section class="token-metric-row">
+            <div><strong>${formatCompact(totalTokens)}</strong><span>累计 Token</span></div>
+            <div><strong>${formatCompact(peakTokens)}</strong><span>单日峰值</span></div>
+            <div><strong>${estimatedUsageRate}%</strong><span>估算记录占比</span></div>
+          </section>
+          <section class="profile-activity-card token-heatmap-card">
+            <div class="section-heading">
+              <div><p class="eyebrow">Token Activity</p><h2>Token 活动</h2></div>
+              ${renderHeatmapModeTabs("token", tokenMode)}
+            </div>
+            ${renderMetricHeatmap({
+              mode: tokenMode,
+              kind: "token",
+              dailyMap: usageByDate,
+              valueKey: "totalTokens",
+              todayDate
+            })}
+          </section>
+          <section class="profile-lower-grid">
+            <article class="profile-activity-card">
+              <div class="section-heading"><div><p class="eyebrow">Models</p><h2>常用模型</h2></div></div>
+              ${renderTopModels(modelRows)}
+            </article>
+            <article class="profile-activity-card">
+              <div class="section-heading"><div><p class="eyebrow">Study Log</p><h2>最近学习日</h2></div></div>
+              ${renderRecentDays(studyDays, usageByDate)}
+            </article>
+          </section>
+        </div>
+      </details>
     </section>
   `;
 
@@ -518,9 +569,114 @@ function renderActivityHeatmap({ mode, days, values, details, unit, todayDate })
       </div>
       <div class="heatmap-legend">
         <span>少</span><i class="activity-cell level-1"></i><i class="activity-cell level-2"></i><i class="activity-cell level-3"></i><i class="activity-cell level-4"></i><span>多</span>
-      </div>
     </div>
   `;
+}
+
+function buildWeakSectionRows(wrongItems) {
+  const rows = new Map();
+  wrongItems.forEach((item) => {
+    const label = String(item.section || "未标注章节").trim();
+    rows.set(label, (rows.get(label) || 0) + 1);
+  });
+  return [...rows.entries()]
+    .map(([label, value]) => ({ label, value, meta: `${value} 道未掌握错题` }))
+    .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label, "zh-CN"))
+    .slice(0, 6);
+}
+
+function buildQuestionTypeAccuracy(questions, answers) {
+  const questionMap = new Map(questions.map((question) => [question.id, question]));
+  const rows = new Map([
+    ["choice", { label: "选择题", submitted: 0, correct: 0 }],
+    ["subjective", { label: "大题", submitted: 0, correct: 0 }]
+  ]);
+  answers
+    .filter((answer) => answer.submitted && !answer.gradingPending)
+    .forEach((answer) => {
+      const type = answer.type || questionMap.get(answer.questionId)?.type;
+      const row = rows.get(type);
+      if (!row) return;
+      row.submitted += 1;
+      if (answer.isCorrect) row.correct += 1;
+    });
+  return [...rows.values()].map((row) => ({
+    ...row,
+    accuracy: row.submitted ? Math.round((row.correct / row.submitted) * 100) : null
+  }));
+}
+
+function buildActiveNoteRows(notes, sets, answers) {
+  const setMap = new Map(sets.map((set) => [set.id, set]));
+  const counts = new Map();
+  answers
+    .filter((answer) => answer.submitted)
+    .forEach((answer) => {
+      const noteId = answer.noteId || setMap.get(answer.setId)?.noteId;
+      if (noteId) counts.set(noteId, (counts.get(noteId) || 0) + 1);
+    });
+  return notes
+    .map((note) => ({ label: note.title || "未命名笔记", value: counts.get(note.id) || 0, meta: "次有效作答" }))
+    .filter((row) => row.value > 0)
+    .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label, "zh-CN"))
+    .slice(0, 5);
+}
+
+function buildChatTopicRows(notes, messages) {
+  const noteMap = new Map(notes.map((note) => [note.id, note]));
+  const counts = new Map();
+  messages.forEach((message) => {
+    if (message.noteId) counts.set(message.noteId, (counts.get(message.noteId) || 0) + 1);
+  });
+  return [...counts.entries()]
+    .map(([noteId, value]) => ({
+      label: noteMap.get(noteId)?.title || "已删除笔记",
+      value,
+      meta: "条解惑消息"
+    }))
+    .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label, "zh-CN"))
+    .slice(0, 5);
+}
+
+function renderWeakSections(rows) {
+  if (!rows.length) return `<div class="empty-state compact">还没有未掌握错题，继续保持。</div>`;
+  return renderRankedRows(rows, "");
+}
+
+function renderQuestionTypeAccuracy(rows) {
+  return `
+    <div class="accuracy-list">
+      ${rows
+        .map(
+          (row) => `
+            <div class="accuracy-row">
+              <div><strong>${row.label}</strong><span>${row.correct} / ${row.submitted} 正确</span></div>
+              <div class="accuracy-value">${row.accuracy === null ? "--" : `${row.accuracy}%`}</div>
+              <div class="insight-progress"><i style="width:${row.accuracy || 0}%"></i></div>
+            </div>`
+        )
+        .join("")}
+    </div>`;
+}
+
+function renderRankedRows(rows, emptyText) {
+  if (!rows.length) return `<div class="empty-state compact">${escapeHtml(emptyText)}</div>`;
+  const max = Math.max(1, ...rows.map((row) => row.value));
+  return `
+    <div class="ranked-insight-list">
+      ${rows
+        .map(
+          (row) => `
+            <div class="ranked-insight-row">
+              <div class="ranked-insight-copy">
+                <strong>${escapeHtml(row.label)}</strong>
+                <span>${formatCompact(row.value)} ${escapeHtml(row.meta || "")}</span>
+              </div>
+              <div class="insight-progress"><i style="width:${Math.max(8, Math.round((row.value / max) * 100))}%"></i></div>
+            </div>`
+        )
+        .join("")}
+    </div>`;
 }
 
 function buildMonthLabels(days, columnCount) {

@@ -1,5 +1,5 @@
 const DB_NAME = "ai-study-assistant-db";
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 const SETTINGS_ID = "default";
 
 let dbPromise;
@@ -84,6 +84,18 @@ export function openDb() {
       ensureIndex(modelUsage, "role", "role");
       ensureIndex(modelUsage, "modelName", "modelName");
       ensureIndex(modelUsage, "createdAt", "createdAt");
+
+      const learningMemories = getOrCreateStore(db, tx, "learningMemories");
+      ensureIndex(learningMemories, "category", "category");
+      ensureIndex(learningMemories, "enabled", "enabled");
+      ensureIndex(learningMemories, "updatedAt", "updatedAt");
+
+      const memorySettings = getOrCreateStore(db, tx, "memorySettings");
+      ensureIndex(memorySettings, "updatedAt", "updatedAt");
+
+      const learningProgress = getOrCreateStore(db, tx, "learningProgress");
+      ensureIndex(learningProgress, "noteId", "noteId");
+      ensureIndex(learningProgress, "updatedAt", "updatedAt");
     };
 
     request.onsuccess = () => resolve(request.result);

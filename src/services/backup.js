@@ -13,7 +13,10 @@ export const BACKUP_STORES = [
   "wrongItems",
   "chatMessages",
   "studyDays",
-  "modelUsage"
+  "modelUsage",
+  "learningMemories",
+  "memorySettings",
+  "learningProgress"
 ];
 
 export async function buildLearningBackup() {

@@ -45,3 +45,18 @@ export function downloadJson(filename, data) {
     link.remove();
   }, 1000);
 }
+
+export function downloadText(filename, content, type = "text/plain;charset=utf-8") {
+  const blob = new Blob([String(content || "")], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  window.setTimeout(() => {
+    URL.revokeObjectURL(url);
+    link.remove();
+  }, 1000);
+}

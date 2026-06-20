@@ -1,6 +1,6 @@
 /**
  * Tauri Bridge - 前端与 Rust 后端的桥接层
- * 
+ *
  * 在 Tauri 桌面环境中通过 window.__TAURI__ 调用 Rust 命令；
  * 在浏览器 dev 模式中回退到 HTTP fetch。
  */

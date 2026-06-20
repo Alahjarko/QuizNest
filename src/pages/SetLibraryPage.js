@@ -1,4 +1,5 @@
 import { confirmAction, openModal } from "../components/Modal.js";
+import { bindOverflowMenus, renderOverflowMenu } from "../components/OverflowMenu.js";
 import { showToast } from "../components/Toast.js";
 import { get, getAll, getByIndex, put, remove, removeMany } from "../services/storage/db.js";
 import { formatDateTime, nowIso } from "../utils/ids.js";
@@ -8,35 +9,60 @@ import { buildAnswerMap, metricText, sortSetsByActivity, summarizeQuestionSet } 
 export async function renderSetLibraryPage(container, app) {
   app.setContext({ contextKey: "set-library" });
   const { summaries, detailBySetId } = await loadSetSummaries();
+  const counts = {
+    all: summaries.length,
+    inProgress: summaries.filter((item) => item.status === "in_progress").length,
+    completed: summaries.filter((item) => item.status === "completed").length,
+    review: summaries.filter((item) => item.reviewRecommended).length
+  };
 
   container.innerHTML = `
-    <section class="page-header hero-panel">
+    <section class="archive-page-header">
       <div>
-        <p class="eyebrow">练习记录</p>
+        <p class="page-kicker">Problem Sets</p>
         <h1>题组库</h1>
-        <p>集中管理所有生成过的套题。继续练习、查看结果、重命名或重新开始，都在这里完成。</p>
+        <p>管理所有练习题组，继续练习、查看结果或安排复习。</p>
       </div>
       <div class="page-actions">
-        <button class="secondary-button" data-nav="/" type="button">返回首页</button>
+        <button class="primary-button" data-create-set type="button">从笔记生成题组</button>
       </div>
     </section>
 
-    <section class="stats-grid compact-stats">
-      <div><strong>${summaries.length}</strong><span>题组总数</span></div>
-      <div><strong>${summaries.filter((item) => item.status === "completed").length}</strong><span>已完成</span></div>
-      <div><strong>${summaries.filter((item) => item.status === "in_progress").length}</strong><span>进行中</span></div>
+    <section class="archive-summary" aria-label="题组概览">
+      ${renderArchiveMetric(counts.all, "全部题组")}
+      ${renderArchiveMetric(counts.inProgress, "进行中")}
+      ${renderArchiveMetric(counts.completed, "已完成")}
+      ${renderArchiveMetric(counts.review, "建议复习", "review")}
     </section>
 
-    <section class="set-library-list">
+    <section class="archive-toolbar" aria-label="题组筛选">
+      <label class="archive-search">
+        <span class="sr-only">搜索题组</span>
+        <svg class="lucide-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+        <input data-set-search type="search" placeholder="搜索题组或所属笔记" autocomplete="off" />
+      </label>
+      <div class="archive-filter-tabs" role="group" aria-label="按状态筛选">
+        <button class="active" data-set-filter="all" type="button">全部</button>
+        <button data-set-filter="in_progress" type="button">进行中</button>
+        <button data-set-filter="completed" type="button">已完成</button>
+        <button data-set-filter="review" type="button">建议复习</button>
+      </div>
+    </section>
+
+    <section class="set-library-list" data-set-list>
       ${
         summaries.length
           ? summaries.map((summary) => renderSetCard(summary)).join("")
-          : `<div class="empty-state">还没有题组。先进入某份笔记生成练习。</div>`
+          : renderSetEmptyState()
       }
     </section>
+    <div class="empty-state archive-filter-empty" data-set-filter-empty hidden>没有符合当前条件的题组。</div>
   `;
 
-  container.querySelector("[data-nav]")?.addEventListener("click", () => app.navigate("/"));
+  container.querySelector("[data-create-set]")?.addEventListener("click", () => openCreateSetModal(app));
+  bindOverflowMenus(container);
+
+  bindSetFilters(container);
 
   container.querySelectorAll("[data-continue-set]").forEach((button) => {
     button.addEventListener("click", () => app.navigate(`/practice/${button.dataset.continueSet}`));
@@ -78,6 +104,10 @@ export async function renderSetLibraryPage(container, app) {
       app.refresh();
     });
   });
+
+  container.querySelectorAll("[data-review-set]").forEach((button) => {
+    button.addEventListener("click", () => app.navigate(`/wrong?setId=${encodeURIComponent(button.dataset.reviewSet)}`));
+  });
 }
 
 async function loadSetSummaries() {
@@ -96,7 +126,15 @@ async function loadSetSummaries() {
     const setAnswers = answers.filter((answer) => answer.setId === set.id);
     const setWrongItems = wrongItems.filter((item) => item.setId === set.id);
     const note = noteMap.get(set.noteId);
-    const summary = summarizeQuestionSet({ set, note, questions: setQuestions, answers: setAnswers });
+    const baseSummary = summarizeQuestionSet({ set, note, questions: setQuestions, answers: setAnswers });
+    const openWrongCount = setWrongItems.filter((item) => !item.mastered).length;
+    const summary = {
+      ...baseSummary,
+      openWrongCount,
+      reviewRecommended:
+        baseSummary.status === "completed" &&
+        (openWrongCount > 0 || (baseSummary.accuracy !== null && baseSummary.accuracy < 80))
+    };
     detailBySetId.set(set.id, {
       set,
       note,
@@ -114,32 +152,144 @@ async function loadSetSummaries() {
 }
 
 function renderSetCard(summary) {
+  const primaryAction = summary.reviewRecommended && summary.openWrongCount > 0
+    ? `<button class="primary-button review-action" data-review-set="${summary.id}" type="button">复习错题</button>`
+    : summary.status === "completed"
+      ? `<button class="primary-button" data-result-set="${summary.id}" type="button">查看结果</button>`
+      : `<button class="primary-button" data-continue-set="${summary.id}" type="button">${summary.status === "in_progress" ? "继续练习" : "开始练习"}</button>`;
+  const menuItems = [
+    summary.status !== "completed" && summary.submitted
+      ? `<button data-result-set="${summary.id}" role="menuitem" type="button">查看当前结果</button>`
+      : "",
+    `<button data-rename-set="${summary.id}" role="menuitem" type="button">重命名</button>`,
+    summary.status !== "not_started"
+      ? `<button data-restart-set="${summary.id}" role="menuitem" type="button">重新练习</button>`
+      : "",
+    `<button class="danger-menu-item" data-delete-set="${summary.id}" role="menuitem" type="button">删除题组</button>`
+  ].join("");
+
+  const statusKey = summary.reviewRecommended ? "review" : summary.status;
+  const statusLabel = summary.reviewRecommended ? "建议复习" : summary.statusLabel;
+  const progress = summary.total ? Math.round((summary.submitted / summary.total) * 100) : 0;
+  const searchText = `${summary.title} ${summary.noteTitle}`.toLocaleLowerCase();
+
   return `
-    <article class="set-card">
-      <div class="set-card-main">
-        <div class="set-title-row">
-          <h2>${escapeHtml(summary.title)}</h2>
-          <span class="status-pill ${summary.status}">${summary.statusLabel}</span>
+    <article class="problem-set-card" data-set-card data-status="${statusKey}" data-search="${escapeHtml(searchText)}">
+      <div class="problem-set-marker" aria-hidden="true">${escapeHtml(getNoteMarker(summary.noteTitle))}</div>
+      <div class="problem-set-content">
+        <div class="problem-set-heading">
+          <div>
+            <p class="problem-set-note">${escapeHtml(summary.noteTitle)}</p>
+            <h2>${escapeHtml(summary.title)}</h2>
+          </div>
+          <span class="status-pill ${statusKey}">${statusLabel}</span>
         </div>
-        <p>${escapeHtml(summary.noteTitle)}</p>
-        <div class="set-meta-grid">
+        <div class="problem-set-tags" aria-label="题组构成">
+          <span>${summary.total} 题</span>
           <span>选择题 ${summary.choiceCount}</span>
           <span>大题 ${summary.subjectiveCount}</span>
           <span>${escapeHtml(summary.difficulty)}</span>
-          <span>创建：${formatDateTime(summary.createdAt)}</span>
-          <span>最近练习：${formatDateTime(summary.lastPracticeAt)}</span>
-          <span>${metricText(summary)}</span>
+        </div>
+        <div class="problem-set-footnote">
+          <span>最近练习 ${summary.lastPracticeAt ? formatDateTime(summary.lastPracticeAt) : "尚未开始"}</span>
+          ${summary.openWrongCount ? `<span class="review-note">${summary.openWrongCount} 道错题待掌握</span>` : ""}
         </div>
       </div>
-      <div class="card-actions set-actions">
-        <button class="primary-button" data-continue-set="${summary.id}" type="button">继续练习</button>
-        <button class="secondary-button" data-result-set="${summary.id}" type="button">查看结果</button>
-        <button class="secondary-button" data-rename-set="${summary.id}" type="button">重命名</button>
-        <button class="secondary-button" data-restart-set="${summary.id}" type="button">重新练习</button>
-        <button class="danger-button" data-delete-set="${summary.id}" type="button">删除</button>
+      <div class="problem-set-metrics">
+        <div class="progress-ring" style="--progress: ${progress}" aria-label="练习进度 ${progress}%">
+          <strong>${progress}%</strong>
+          <span>进度</span>
+        </div>
+        <div class="problem-set-accuracy">
+          <span>正确率</span>
+          <strong>${summary.accuracy === null ? "--" : `${summary.accuracy}%`}</strong>
+        </div>
+      </div>
+      <div class="problem-set-actions">
+        ${primaryAction}
+        ${renderOverflowMenu({ label: `${escapeHtml(summary.title)}的更多操作`, items: menuItems })}
       </div>
     </article>
   `;
+}
+
+function renderArchiveMetric(value, label, tone = "") {
+  return `<div class="archive-metric ${tone}"><strong>${value}</strong><span>${label}</span></div>`;
+}
+
+function renderSetEmptyState() {
+  return `
+    <div class="empty-state archive-empty-state">
+      <p class="page-kicker">No Problem Sets</p>
+      <h2>还没有题组</h2>
+      <p>从一份已有笔记生成练习，题组会在这里形成持续可追踪的学习档案。</p>
+    </div>
+  `;
+}
+
+function getNoteMarker(title = "") {
+  const trimmed = String(title).trim();
+  return trimmed ? [...trimmed][0].toLocaleUpperCase() : "Q";
+}
+
+function bindSetFilters(container) {
+  const search = container.querySelector("[data-set-search]");
+  const filters = [...container.querySelectorAll("[data-set-filter]")];
+  const cards = [...container.querySelectorAll("[data-set-card]")];
+  const empty = container.querySelector("[data-set-filter-empty]");
+  let currentFilter = "all";
+
+  const applyFilters = () => {
+    const query = String(search?.value || "").trim().toLocaleLowerCase();
+    let visibleCount = 0;
+    cards.forEach((card) => {
+      const matchesFilter = currentFilter === "all" || card.dataset.status === currentFilter;
+      const matchesSearch = !query || card.dataset.search.includes(query);
+      const visible = matchesFilter && matchesSearch;
+      card.hidden = !visible;
+      if (visible) visibleCount += 1;
+    });
+    if (empty) empty.hidden = visibleCount > 0 || cards.length === 0;
+  };
+
+  search?.addEventListener("input", applyFilters);
+  filters.forEach((button) => {
+    button.addEventListener("click", () => {
+      currentFilter = button.dataset.setFilter;
+      filters.forEach((item) => item.classList.toggle("active", item === button));
+      applyFilters();
+    });
+  });
+}
+
+async function openCreateSetModal(app) {
+  const notes = await getAll("notes");
+  const content = document.createElement("div");
+  content.className = "create-set-picker";
+  content.innerHTML = notes.length
+    ? `
+      <p>选择一份笔记，继续设置题型、难度和题量。</p>
+      <div class="create-set-note-list">
+        ${notes
+          .map(
+            (note) => `
+              <button data-create-from-note="${note.id}" type="button">
+                <span>${escapeHtml(note.title || note.fileName || "未命名笔记")}</span>
+                <small>${escapeHtml(note.fileName || "Markdown 笔记")}</small>
+              </button>
+            `
+          )
+          .join("")}
+      </div>
+    `
+    : `<div class="empty-state">暂无可用笔记，请先导入或创建一份笔记。</div>`;
+  const modal = openModal({ title: "从笔记生成题组", content, width: "620px" });
+  content.querySelectorAll("[data-create-from-note]").forEach((button) => {
+    button.addEventListener("click", () => {
+      modal.close();
+      app.navigate(`/note/${button.dataset.createFromNote}?generate=1`);
+    });
+  });
 }
 
 function openRenameModal(set, app) {
