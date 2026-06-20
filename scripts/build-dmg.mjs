@@ -13,6 +13,7 @@ const archLabel = process.arch === "arm64" ? "aarch64" : process.arch;
 const outputDmg = path.join(root, `${productName}_${version}_${archLabel}.dmg`);
 const targetDir = path.join(tauriDir, "target");
 let stagingDir = "";
+let temporaryDmg = "";
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -64,6 +65,8 @@ function signAppBundle(appBundle) {
 
 function createDmgFromApp(appBundle) {
   stagingDir = fs.mkdtempSync(path.join(os.tmpdir(), "quiznest-dmg-"));
+  temporaryDmg = path.join(os.tmpdir(), `${productName}_${version}_${archLabel}_${process.pid}.dmg`);
+  fs.rmSync(temporaryDmg, { force: true });
   fs.cpSync(appBundle, path.join(stagingDir, `${productName}.app`), { recursive: true });
   fs.symlinkSync("/Applications", path.join(stagingDir, "Applications"), "dir");
 
@@ -76,11 +79,13 @@ function createDmgFromApp(appBundle) {
     "-ov",
     "-format",
     "UDZO",
-    outputDmg
+    temporaryDmg
   ]);
   if (dmgStatus !== 0) {
     throw new Error("DMG 生成失败。");
   }
+  fs.rmSync(outputDmg, { force: true });
+  fs.copyFileSync(temporaryDmg, outputDmg);
 }
 
 function cleanBuildCache() {
@@ -123,6 +128,9 @@ try {
 } finally {
   if (stagingDir) {
     fs.rmSync(stagingDir, { recursive: true, force: true });
+  }
+  if (temporaryDmg) {
+    fs.rmSync(temporaryDmg, { force: true });
   }
   cleanBuildCache();
 }

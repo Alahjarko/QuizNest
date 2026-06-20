@@ -1,5 +1,6 @@
 import { openModal } from "../components/Modal.js";
-import { setManualChatContext } from "../components/ChatPanel.js";
+import { bindOverflowMenus, renderOverflowMenu } from "../components/OverflowMenu.js";
+import { buildManualChatContext, setManualChatContext } from "../components/ChatPanel.js";
 import { showToast } from "../components/Toast.js";
 import { buildGradingMessages, normalizeGradeResult } from "../prompts/grading.js";
 import { buildWrongAnalysisMessages } from "../prompts/wrongAnalysis.js";
@@ -25,61 +26,85 @@ export async function renderWrongBookPage(container, app) {
       .map((item) => item.section || "未标注章节")
   );
   const filtered = allWrongItems.filter((item) => matchFilters(item, filters));
+  const recentThreshold = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const counts = {
+    all: allWrongItems.length,
+    open: allWrongItems.filter((item) => !item.mastered).length,
+    mastered: allWrongItems.filter((item) => item.mastered).length,
+    recent: allWrongItems.filter((item) => Date.parse(item.createdAt || 0) >= recentThreshold).length
+  };
 
   app.setContext({ contextKey: "wrong-book", note: filters.noteId !== "all" ? noteMap.get(filters.noteId) : undefined });
 
   container.innerHTML = `
-    <section class="page-header">
+    <section class="archive-page-header mistake-page-header">
       <div>
-        <p class="eyebrow">错题复习</p>
+        <p class="page-kicker">Error Review</p>
         <h1>错题本</h1>
-        <p>按笔记、章节和题型定位薄弱点。错题会记录复习次数和掌握状态。</p>
+        <p>回顾错误，分析原因，把错题转化为真正掌握的知识点。</p>
       </div>
       <div class="page-actions">
         <button class="primary-button" data-analyze-weakness type="button">薄弱点分析</button>
       </div>
     </section>
 
-    <section class="wrong-filters">
-      <label>
-        <span>笔记</span>
-        <select data-filter="noteId">
-          <option value="all">全部笔记</option>
-          ${notes.map((note) => `<option value="${note.id}" ${filters.noteId === note.id ? "selected" : ""}>${escapeHtml(note.title)}</option>`).join("")}
-        </select>
-      </label>
-      <label>
-        <span>章节</span>
-        <select data-filter="section">
-          <option value="all">全部章节</option>
-          ${sections.map((section) => `<option value="${escapeHtml(section)}" ${filters.section === section ? "selected" : ""}>${escapeHtml(section)}</option>`).join("")}
-        </select>
-      </label>
-      <label>
-        <span>题型</span>
-        <select data-filter="type">
-          <option value="all" ${filters.type === "all" ? "selected" : ""}>全部题型</option>
-          <option value="choice" ${filters.type === "choice" ? "selected" : ""}>选择题</option>
-          <option value="subjective" ${filters.type === "subjective" ? "selected" : ""}>大题</option>
-        </select>
-      </label>
-      <label>
-        <span>掌握状态</span>
-        <select data-filter="status">
-          <option value="all" ${filters.status === "all" ? "selected" : ""}>全部</option>
-          <option value="open" ${filters.status === "open" ? "selected" : ""}>未掌握</option>
-          <option value="mastered" ${filters.status === "mastered" ? "selected" : ""}>已掌握</option>
-        </select>
-      </label>
+    <section class="archive-summary mistake-summary" aria-label="错题概览">
+      ${renderMistakeMetric(counts.all, "错题总数")}
+      ${renderMistakeMetric(counts.open, "待复习", "review")}
+      ${renderMistakeMetric(counts.mastered, "已掌握")}
+      ${renderMistakeMetric(counts.recent, "近 7 天新增")}
     </section>
 
-    <section class="wrong-list">
+    <section class="mistake-controls" aria-label="错题筛选">
+      <div class="mistake-primary-filters">
+        <label class="archive-search">
+          <span class="sr-only">搜索错题</span>
+          <svg class="lucide-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+          <input data-wrong-search type="search" placeholder="搜索题目、错因或知识点" autocomplete="off" />
+        </label>
+        <div class="archive-filter-tabs" role="group" aria-label="掌握状态">
+          <button class="${filters.status === "all" ? "active" : ""}" data-status-filter="all" type="button">全部错题</button>
+          <button class="${filters.status === "open" ? "active" : ""}" data-status-filter="open" type="button">待复习</button>
+          <button class="${filters.status === "mastered" ? "active" : ""}" data-status-filter="mastered" type="button">已掌握</button>
+        </div>
+      </div>
+      <details class="mistake-advanced-filters" ${filters.noteId !== "all" || filters.section !== "all" || filters.type !== "all" || filters.setId !== "all" ? "open" : ""}>
+        <summary>高级筛选</summary>
+        <div class="wrong-filters">
+          <label>
+            <span>笔记</span>
+            <select data-filter="noteId">
+              <option value="all">全部笔记</option>
+              ${notes.map((note) => `<option value="${note.id}" ${filters.noteId === note.id ? "selected" : ""}>${escapeHtml(note.title)}</option>`).join("")}
+            </select>
+          </label>
+          <label>
+            <span>章节</span>
+            <select data-filter="section">
+              <option value="all">全部章节</option>
+              ${sections.map((section) => `<option value="${escapeHtml(section)}" ${filters.section === section ? "selected" : ""}>${escapeHtml(section)}</option>`).join("")}
+            </select>
+          </label>
+          <label>
+            <span>题型</span>
+            <select data-filter="type">
+              <option value="all" ${filters.type === "all" ? "selected" : ""}>全部题型</option>
+              <option value="choice" ${filters.type === "choice" ? "selected" : ""}>选择题</option>
+              <option value="subjective" ${filters.type === "subjective" ? "selected" : ""}>大题</option>
+            </select>
+          </label>
+        </div>
+      </details>
+    </section>
+
+    <section class="wrong-list mistake-journal" data-wrong-list>
       ${
         filtered.length
           ? filtered.map((item) => renderWrongItem(item, noteMap.get(item.noteId))).join("")
-          : `<div class="empty-state">当前筛选条件下没有错题。</div>`
+          : renderWrongEmptyState(filters)
       }
     </section>
+    <div class="empty-state archive-filter-empty" data-wrong-filter-empty hidden>没有符合搜索条件的错题。</div>
   `;
 
   container.querySelectorAll("[data-filter]").forEach((select) => {
@@ -93,9 +118,18 @@ export async function renderWrongBookPage(container, app) {
     });
   });
 
+  container.querySelectorAll("[data-status-filter]").forEach((button) => {
+    button.addEventListener("click", () => {
+      app.navigate(`/wrong?${new URLSearchParams({ ...filters, status: button.dataset.statusFilter }).toString()}`);
+    });
+  });
+
+  bindWrongSearch(container);
+
   container.querySelector("[data-analyze-weakness]").addEventListener("click", async () => {
     await analyzeWeakness(filters, allWrongItems, noteMap);
   });
+  bindOverflowMenus(container);
 
   container.querySelectorAll("[data-delete-wrong]").forEach((button) => {
     button.addEventListener("click", async () => {
@@ -129,17 +163,31 @@ export async function renderWrongBookPage(container, app) {
     button.addEventListener("click", async () => {
       const item = await get("wrongItems", button.dataset.askWrong);
       if (!item) return;
-      const note = noteMap.get(item.noteId) || (await get("notes", item.noteId));
-      setManualChatContext({
-        contextKey: `wrong:${item.id}`,
-        note,
-        question: item.questionContent,
-        answer: item.userAnswer,
-        correctAnswer: item.correctAnswer,
-        aiExplanation: item.aiExplanation,
-        wrongItem: item
-      });
+      const [note, question, set, answer] = await Promise.all([
+        noteMap.get(item.noteId) || get("notes", item.noteId),
+        item.questionId ? get("questions", item.questionId) : null,
+        item.setId ? get("questionSets", item.setId) : null,
+        item.questionId ? get("answers", item.questionId) : null
+      ]);
+      const chatContext = question
+        ? buildManualChatContext({ note, set, question, answer, wrongItem: item })
+        : {
+            contextKey: `wrong:${item.id}`,
+            note,
+            wrongItem: item,
+            correctAnswer: item.correctAnswer,
+            aiExplanation: item.aiExplanation
+          };
+      setManualChatContext({ ...chatContext, contextKey: `wrong:${item.id}` });
+      if (!question) showToast("原题记录已不存在，将使用当前错题内容作为上下文", "error");
       app.navigate("/chat");
+    });
+  });
+
+  container.querySelectorAll("[data-show-wrong-details]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const details = container.querySelector(`[data-wrong-details="${button.dataset.showWrongDetails}"]`);
+      if (details) details.open = true;
     });
   });
 }
@@ -149,7 +197,8 @@ function readFilters(query) {
     noteId: query.get("noteId") || "all",
     section: query.get("section") || "all",
     type: query.get("type") || "all",
-    status: query.get("status") || "all"
+    status: query.get("status") || "all",
+    setId: query.get("setId") || "all"
   };
 }
 
@@ -159,38 +208,126 @@ function matchFilters(item, filters) {
   if (filters.type !== "all" && item.questionType !== filters.type) return false;
   if (filters.status === "open" && item.mastered) return false;
   if (filters.status === "mastered" && !item.mastered) return false;
+  if (filters.setId !== "all" && item.setId !== filters.setId) return false;
   return true;
 }
 
 function renderWrongItem(item, note) {
+  const typeLabel = item.questionType === "choice" ? "选择题" : "大题";
+  const menuItems = `
+    <button class="danger-menu-item" data-delete-wrong="${item.id}" role="menuitem" type="button">删除错题</button>
+  `;
+  const questionPreview = compactText(item.questionContent, 118);
+  const errorPreview = compactText(item.errorReason || item.aiExplanation || "尚未记录明确错因", 100);
+  const searchText = [note?.title, item.section, item.questionContent, item.errorReason, item.aiExplanation]
+    .filter(Boolean)
+    .join(" ")
+    .toLocaleLowerCase();
+
   return `
-    <article class="wrong-card">
-      <div class="wrong-card-header">
-        <div>
-          <strong>${escapeHtml(note?.title || "未知笔记")}</strong>
-          <span>${escapeHtml(item.section || "未标注章节")} · ${item.questionType === "choice" ? "选择题" : "大题"} · ${formatDateTime(item.createdAt)}</span>
+    <article class="mistake-card" data-wrong-card data-search="${escapeHtml(searchText)}">
+      <div class="mistake-card-index" aria-hidden="true">${item.mastered ? "✓" : "!"}</div>
+      <div class="mistake-card-main">
+        <div class="mistake-card-heading">
+          <div>
+            <p class="mistake-source">${escapeHtml(note?.title || "未知笔记")}</p>
+            <h2>${escapeHtml(questionPreview)}</h2>
+          </div>
+          <span class="mastery-badge ${item.mastered ? "mastered" : ""}">${item.mastered ? "已掌握" : "待复习"}</span>
         </div>
-        <span class="mastery-badge ${item.mastered ? "mastered" : ""}">${item.mastered ? "已掌握" : "未掌握"}</span>
+        <div class="mistake-diagnosis">
+          <span>错因</span>
+          <p>${escapeHtml(errorPreview)}</p>
+        </div>
+        <div class="mistake-meta">
+          <span>${escapeHtml(item.section || "未标注章节")}</span>
+          <span>${typeLabel}</span>
+          <span>复习 ${Number(item.reviewCount || 0)} 次</span>
+          <span>${item.lastReviewedAt ? `最近复习 ${formatDateTime(item.lastReviewedAt)}` : "尚未复习"}</span>
+        </div>
       </div>
-      <div class="wrong-content">
-        <p><strong>题目：</strong>${escapeHtml(item.questionContent)}</p>
-        <p><strong>你的答案：</strong>${escapeHtml(item.userAnswer)}</p>
-        <p><strong>正确/参考答案：</strong>${escapeHtml(item.correctAnswer)}</p>
-        <p><strong>错误原因：</strong>${escapeHtml(item.errorReason || "未记录")}</p>
-        <p><strong>AI 解析：</strong>${escapeHtml(item.aiExplanation || "未记录")}</p>
+      <div class="mistake-card-actions">
+        ${
+          item.mastered
+            ? `<button class="secondary-button" data-show-wrong-details="${item.id}" type="button">查看解析</button>`
+            : `<button class="primary-button" data-review-wrong="${item.id}" type="button">继续复习</button>`
+        }
+        ${renderOverflowMenu({ label: "错题的更多操作", items: menuItems })}
       </div>
-      <div class="wrong-meta">
-        <span>复习次数：${Number(item.reviewCount || 0)}</span>
-        <span>最近复习：${formatDateTime(item.lastReviewedAt)}</span>
-      </div>
-      <div class="card-actions">
-        <button class="secondary-button" data-ask-wrong="${item.id}" type="button">问 AI</button>
-        <button class="secondary-button" data-review-wrong="${item.id}" type="button">重新练习</button>
-        <button class="secondary-button" data-toggle-mastered="${item.id}" type="button">${item.mastered ? "标记未掌握" : "标记已掌握"}</button>
-        <button class="danger-button" data-delete-wrong="${item.id}" type="button">删除</button>
-      </div>
+      <details class="mistake-details" data-wrong-details="${item.id}">
+        <summary>
+          <span>展开完整题目与解析</span>
+          <svg class="lucide-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+        </summary>
+        <div class="mistake-detail-grid">
+          <section class="mistake-question-sheet">
+            <p class="detail-label">完整题目</p>
+            <div>${escapeHtml(item.questionContent)}</div>
+          </section>
+          <section>
+            <p class="detail-label">你的答案</p>
+            <div>${escapeHtml(item.userAnswer || "未记录")}</div>
+          </section>
+          <section>
+            <p class="detail-label">正确或参考答案</p>
+            <div>${escapeHtml(item.correctAnswer || "未记录")}</div>
+          </section>
+          <section>
+            <p class="detail-label">错误原因</p>
+            <div>${escapeHtml(item.errorReason || "未记录")}</div>
+          </section>
+          <section class="mistake-ai-explanation">
+            <p class="detail-label">AI 解析</p>
+            <div>${escapeHtml(item.aiExplanation || "未记录")}</div>
+          </section>
+        </div>
+        <div class="mistake-detail-actions">
+          <span class="wrong-created-at">记录于 ${formatDateTime(item.createdAt)}</span>
+          <div>
+            <button class="secondary-button" data-ask-wrong="${item.id}" type="button">问 AI</button>
+            <button class="secondary-button" data-toggle-mastered="${item.id}" type="button">${item.mastered ? "标记未掌握" : "标记已掌握"}</button>
+          </div>
+        </div>
+      </details>
     </article>
   `;
+}
+
+function renderMistakeMetric(value, label, tone = "") {
+  return `<div class="archive-metric ${tone}"><strong>${value}</strong><span>${label}</span></div>`;
+}
+
+function renderWrongEmptyState(filters) {
+  const scoped = filters.setId !== "all" || filters.noteId !== "all" || filters.status !== "all";
+  return `
+    <div class="empty-state archive-empty-state">
+      <p class="page-kicker">Mistake Journal</p>
+      <h2>${scoped ? "当前范围内没有错题" : "错题本还是空的"}</h2>
+      <p>${scoped ? "调整筛选条件，或继续完成练习后再回来查看。" : "完成练习后，未掌握的题目会自动归入这里。"}</p>
+    </div>
+  `;
+}
+
+function compactText(value, limit) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (text.length <= limit) return text;
+  return `${text.slice(0, limit).trim()}...`;
+}
+
+function bindWrongSearch(container) {
+  const input = container.querySelector("[data-wrong-search]");
+  const cards = [...container.querySelectorAll("[data-wrong-card]")];
+  const empty = container.querySelector("[data-wrong-filter-empty]");
+  input?.addEventListener("input", () => {
+    const query = input.value.trim().toLocaleLowerCase();
+    let visibleCount = 0;
+    cards.forEach((card) => {
+      const visible = !query || card.dataset.search.includes(query);
+      card.hidden = !visible;
+      if (visible) visibleCount += 1;
+    });
+    if (empty) empty.hidden = visibleCount > 0 || cards.length === 0;
+  });
 }
 
 async function analyzeWeakness(filters, allWrongItems, noteMap) {

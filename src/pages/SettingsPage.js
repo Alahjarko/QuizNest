@@ -6,22 +6,40 @@ import { confirmAction } from "../components/Modal.js";
 import { downloadJson, readImageFile, readTextFile } from "../utils/file.js";
 import { escapeHtml } from "../utils/markdown.js";
 import { THEME_VALUES, getStoredTheme, setTheme } from "../services/theme.js";
+import {
+  bindMemorySettingsSection,
+  getMemoryOverview,
+  renderMemorySettingsSection
+} from "../components/MemoryManager.js";
 
 export async function renderSettingsPage(container, app) {
   app.setContext({ contextKey: "settings" });
-  const settings = normalizeSettingsForForm(await getSettings());
+  const [rawSettings, memoryOverview] = await Promise.all([getSettings(), getMemoryOverview()]);
+  const settings = normalizeSettingsForForm(rawSettings);
 
   container.innerHTML = `
-    <section class="page-header hero-panel">
+    <section class="settings-page-header">
       <div>
-        <p class="eyebrow">QuizNest AI 配置</p>
-        <h1>模型设置</h1>
-        <p>配置 OpenAI-compatible Chat Completions。默认共用一套 API，也可以按笔记、出题、判题和解惑拆分模型。</p>
+        <p class="page-kicker">Settings</p>
+        <h1>设置</h1>
+        <p>管理模型、外观、长期记忆与本地学习数据。</p>
       </div>
     </section>
 
-    <form class="settings-form apple-form" data-settings-form>
-      <section class="settings-section">
+    <nav class="settings-index" aria-label="设置分组">
+      <button type="button" data-settings-jump="settings-model"><span>01</span>模型配置</button>
+      <button type="button" data-settings-jump="settings-appearance"><span>02</span>外观</button>
+      <button type="button" data-settings-jump="settings-memory"><span>03</span>长期记忆</button>
+      <button type="button" data-settings-jump="settings-data"><span>04</span>数据管理</button>
+    </nav>
+
+    <form class="settings-form apple-form settings-model-form" data-settings-form id="settings-model">
+      <div class="settings-group-intro">
+        <p class="eyebrow">Model Configuration</p>
+        <h2>模型配置</h2>
+        <p>配置 OpenAI-compatible Chat Completions。默认共用一套 API，也可以按任务拆分服务。</p>
+      </div>
+      <section class="settings-section model-settings-section">
         <div class="section-heading inline">
           <div>
             <h2>通用配置</h2>
@@ -84,7 +102,7 @@ export async function renderSettingsPage(container, app) {
         ${renderRoleConfig("chat", "解惑对话配置（可选）", "留空时使用出题模型配置。", settings.chatConfig)}
       </div>
 
-      <section class="settings-section appearance-section">
+      <section class="settings-section appearance-section" id="settings-appearance">
         <div class="section-heading inline">
           <div>
             <p class="eyebrow">外观</p>
@@ -135,12 +153,16 @@ export async function renderSettingsPage(container, app) {
       <p class="hint">API Key 会保存在本机浏览器 IndexedDB 中。请只在可信设备上使用。出题请求较重，建议超时设置为 180000-300000 毫秒。</p>
     </form>
 
-    <section class="settings-section data-section">
+    <div id="settings-memory" class="settings-anchor-section">
+      ${renderMemorySettingsSection(memoryOverview)}
+    </div>
+
+    <section class="settings-section data-section" id="settings-data">
       <div class="section-heading inline">
         <div>
           <p class="eyebrow">数据管理</p>
           <h2>学习数据备份</h2>
-          <p>导出笔记本、笔记、题组、题目、作答记录、错题本、聊天记录、学习统计和模型用量。不会导出 Base URL、API Key 或模型配置。</p>
+          <p>导出笔记本、笔记、题组、题目、作答记录、错题本、聊天记录、长期记忆、学习进度、学习统计和模型用量。不会导出 Base URL、API Key 或模型配置。</p>
         </div>
       </div>
       <div class="backup-actions">
@@ -157,6 +179,13 @@ export async function renderSettingsPage(container, app) {
   const form = container.querySelector("[data-settings-form]");
   bindSettingsInteractions(container, form);
   bindBackupActions(container, app);
+  bindMemorySettingsSection(container);
+
+  container.querySelectorAll("[data-settings-jump]").forEach((button) => {
+    button.addEventListener("click", () => {
+      container.querySelector(`#${button.dataset.settingsJump}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();

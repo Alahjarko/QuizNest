@@ -12,7 +12,7 @@
 - 不要在日志中写入 API Key、Base URL 私密信息、用户本地路径中的敏感数据或完整导出的学习数据。
 - 如果 GLM 或其他模型继续开发，请在本文件追加新段落，不要覆盖已有记录。
 - 如果某次改动已经推送到远端，请记录分支名和提交号。
-- 协作日志只保留本目录下的 `agent-notes/FEATURE_LOG.md`；不要再创建 `agent_log/` 或其他重复日志目录。
+- 协作日志只保留本目录下的 `agent-note/FEATURE_LOG.md`；不要再创建其他重复日志目录。
 
 ## 当前基线
 
@@ -23,6 +23,59 @@
 - 项目方向：继续维护 Tauri 版本；此前 macOS SwiftUI/native 方向已停止作为本分支目标。
 
 ## Codex 已完成的重要功能
+
+### 2026-06-20 / Codex / GPT-5
+
+完成内容（Academic Problem Solver UI）：
+
+- 建立纸面色、低饱和绿色与复习橙色、边框、间距、阴影和内容宽度等设计令牌。
+- 将题组库改造成问题集档案卡：支持搜索和筛选，每张卡只保留一个主要行动，其余操作收进更多菜单。
+- 将错题本改造成摘要优先的诊断手册：默认展示错因、知识点和掌握状态，完整答案与解析按需展开。
+- 将解惑改造成上下文优先的解题工作台：加入上下文 chips、侧边信息区、快捷追问和固定输入框。
+- 将首页改造成今日学习桌面，并保留用户自定义学习封面。
+- 将统计页改造成学习洞察页，优先展示练习、连续学习、薄弱章节和题型正确率；Token 用量降至折叠区。
+- 重新整理设置页的信息分组，保留模型、外观、长期记忆和数据管理能力。
+- 将新版源码从 `NEW_LOOK` 提升为仓库根目录主版本，并恢复 GitHub Workflow 从根目录执行。
+
+验证：
+
+- 全部 JavaScript 文件通过 `node --check`。
+- `npm run sync-dist` 与 `git diff --check` 通过。
+- GitHub Workflow 保持 `main` 轻量检查、`v*` 标签构建 Windows 与 Android Release。
+
+### 2026-06-19 / Codex / GPT-5
+
+完成内容（长期学习体验与错题上下文）：
+
+- 修复错题本“问 AI”只定位到笔记的问题：现在会加载原题、所属题组、作答记录和错题记录，并在解惑中显示具体题号。
+- 新增本地 AI 长期记忆：记录常错知识点、讲题偏好、近期学习内容和自定义信息。
+- 长期记忆支持总开关、单条启停、用户编辑、删除、手动新增，以及用户主动触发的“AI 整理记忆”。
+- AI 整理不会在每次聊天后自动运行，避免额外且不可控的 token 消耗。
+- 支持把当前启用记忆导出为 `memory.md`；记忆和开关状态纳入学习数据备份。
+- 解惑新增“学习新知识”入口，可选择笔记与起始章节，按章节独立保存聊天记录和学习进度。
+- 学习模式提供上一章节、下一章节和结束学习控制，并向模型注入循序教学提示词。
+
+涉及文件：
+
+- `src/components/ChatPanel.js`
+- `src/components/MemoryManager.js`
+- `src/pages/WrongBookPage.js`
+- `src/pages/SettingsPage.js`
+- `src/prompts/chat.js`
+- `src/prompts/memory.js`
+- `src/services/learningMemory.js`
+- `src/services/storage/db.js`
+- `src/services/backup.js`
+- `src/styles.css`
+
+验证：
+
+- 全部前端与脚本 JavaScript 文件通过 `node --check`。
+- `npm run sync-dist` 与 `git diff --check` 通过。
+- 浏览器验证长期记忆总开关、管理弹窗、新增/编辑/保存、深色模式和 720px 窄屏布局正常。
+- 浏览器验证解惑页“学习新知识”入口、笔记与章节选择器及空数据状态正常。
+- 使用构造数据验证错题上下文可精确携带原题 ID、题号、题组、作答与错题记录。
+- 版本提升至 `0.1.5`，本地 Apple Silicon DMG 构建成功并通过 `hdiutil verify`。
 
 ### 2026-06-14 / Codex / GPT-5
 
@@ -476,3 +529,25 @@
 注意事项：
 
 - 当前是本地 ad-hoc 签名，不等同于 Developer ID 签名或 Apple notarization。浏览器下载后的分发包仍可能被 Gatekeeper 按“未认证开发者”拦截；如需免提示分发，需要正式 Developer ID 证书和公证流程。
+
+### 2026-06-19 / Codex / GPT-5
+
+完成内容（题组库与错题本信息分层）：
+
+- 题组库卡片改为摘要优先、按需展开详情；仅保留一个状态相关主操作，管理操作收进更多菜单。
+- 错题本默认只显示来源、题目摘要、掌握状态和复习数据；答案、错误原因与 AI 解析改为展开查看。
+- 错题的问 AI、切换掌握状态和删除操作收进更多菜单，减少页面长期使用时的操作噪音。
+
+涉及文件：
+
+- `src/components/OverflowMenu.js`
+- `src/pages/SetLibraryPage.js`
+- `src/pages/WrongBookPage.js`
+- `src/styles.css`
+
+验证：
+
+- 相关 JavaScript 文件 `node --check` 通过，`npm run sync-dist` 与 `git diff --check` 通过。
+- 应用内浏览器验证题组详情、错题详情和更多菜单可正常展开。
+- 在 `1280px`、`680px` 和 `390px` 宽度下完成视觉检查，无横向溢出；手机宽度下更多菜单完整位于视口内。
+- 真实浏览器路由 `#/sets` 与 `#/wrong` 加载完成，控制台无错误。

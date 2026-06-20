@@ -1,11 +1,15 @@
 import { noteExcerpt } from "../utils/markdown.js";
 import { toPromptJson } from "../services/ai/jsonRepair.js";
 
-export function buildChatMessages({ context, history, userMessage }) {
+export function buildChatMessages({ context, memories = [], history, userMessage }) {
+  const focusedNote = context?.learningMode && context?.section?.content
+    ? { ...context.note, content: context.section.content }
+    : context?.note;
   const compactContext = {
     noteTitle: context?.note?.title,
-    noteExcerpt: context?.note ? noteExcerpt(context.note, 7000) : undefined,
-    currentSection: context?.section,
+    noteExcerpt: focusedNote ? noteExcerpt(focusedNote, 7000) : undefined,
+    currentSection: sanitizePromptValue(context?.section, 7000),
+    learningMode: sanitizePromptValue(context?.learningMode, 1000),
     questionSet: sanitizePromptValue(context?.questionSet, 1200),
     questionSetProgress: sanitizePromptValue(context?.questionSetProgress, 1200),
     questionSetAnswers: sanitizePromptValue(context?.questionSetAnswers, 2200),
@@ -16,6 +20,20 @@ export function buildChatMessages({ context, history, userMessage }) {
     wrongItem: summarizeWrongItemForPrompt(context?.wrongItem)
   };
 
+  const memoryContext = memories.slice(0, 30).map((item) => ({
+    category: item.category,
+    content: compactText(item.content, 500)
+  }));
+  const learningInstructions = context?.learningMode
+    ? `
+当前处于“学习新知识”模式：
+- 只围绕当前章节循序教学，不要提前展开后续章节。
+- 先明确本节目标，再一次讲一个核心概念，并通过短问题检查用户理解。
+- 根据用户回答决定继续解释、换一种讲法或进入下一个概念。
+- 不要一次性输出整章摘要；保持可交互的教学节奏。
+- 章节切换由界面按钮控制，不要自行宣称已经进入下一章。`
+    : "";
+
   const system = `你是一个中文学习解惑助手。回答必须结合当前上下文，优先使用用户笔记和当前题目信息。
 
 要求：
@@ -25,6 +43,12 @@ export function buildChatMessages({ context, history, userMessage }) {
 - 如需写数学公式，请使用标准 LaTeX：行内公式用 \\(...\\)，块级公式用 \\[...\\]。
 - 不要输出未闭合的 $、$$、\\(、\\[，不要把 Markdown 加粗符号包在公式分隔符内。
 - 如果上下文提示用户答案包含图片，但没有提供图片内容，请只基于文字答案、识别结果和已记录反馈回答；不要声称自己已经看到了图片。
+${learningInstructions}
+
+长期学习记忆（可能为空）：
+${toPromptJson(memoryContext)}
+
+使用长期记忆时：把它用于调整讲解方式和提醒常见错误；若记忆与当前笔记或用户本轮表述冲突，以当前信息为准，不要向用户声称记忆一定正确。
 
 当前上下文：
 ${toPromptJson(compactContext)}`;

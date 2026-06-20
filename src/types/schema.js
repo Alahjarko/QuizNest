@@ -19,5 +19,8 @@ export const STORE_NAMES = [
   "wrongItems",
   "chatMessages",
   "studyDays",
-  "modelUsage"
+  "modelUsage",
+  "learningMemories",
+  "memorySettings",
+  "learningProgress"
 ];
