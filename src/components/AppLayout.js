@@ -169,13 +169,8 @@ export function bindAppLayout(root, { navigate }) {
       hideTooltip();
     };
 
-    // 用 View Transitions API 让主内容区新旧画面交叉淡入，掩盖文字重排。
-    // 不支持的浏览器降级为直接切换（侧边栏自身的 grid 过渡仍生效）。
-    if (document.startViewTransition) {
-      document.startViewTransition(() => applyDomChanges());
-    } else {
-      applyDomChanges();
-    }
+    // B方案：禁用 View Transitions 转场，直接执行 DOM 改变，仅利用 CSS Grid 过渡宽度
+    applyDomChanges();
   };
 
   root.querySelectorAll("[data-nav]").forEach((button) => {
