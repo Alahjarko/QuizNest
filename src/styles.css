@@ -99,6 +99,7 @@ button {
   flex-direction: column;
   min-width: 0;
   height: 100vh;
+  overflow: hidden;
   border-right: 1px solid rgba(214, 219, 216, 0.82);
   background:
     linear-gradient(155deg, rgba(242, 236, 239, 0.88), rgba(244, 247, 246, 0.92) 52%, rgba(233, 238, 241, 0.88)),
@@ -138,9 +139,12 @@ button {
 .sidebar-nav-item > span,
 .sidebar-settings-copy,
 .sidebar-settings-button > .lucide-icon {
+  white-space: nowrap;
   transition:
-    opacity 120ms ease,
-    visibility 120ms ease;
+    width var(--sidebar-transition),
+    min-width var(--sidebar-transition),
+    opacity var(--sidebar-transition),
+    visibility var(--sidebar-transition);
 }
 
 .sidebar-collapse-button {
@@ -251,6 +255,9 @@ button {
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sidebar-note-item {
@@ -409,9 +416,13 @@ button {
 
 .sidebar-profile-avatar {
   display: grid;
+  flex: 0 0 32px;
   place-items: center;
   width: 32px;
+  min-width: 32px;
   height: 32px;
+  min-height: 32px;
+  aspect-ratio: 1;
   border-radius: 999px;
   background: linear-gradient(135deg, #dff1e7, #8fc8a8);
   color: var(--primary-strong);
@@ -475,6 +486,8 @@ button {
   pointer-events: none;
   white-space: nowrap;
   animation: sidebar-tooltip-in 120ms cubic-bezier(0.22, 1, 0.36, 1);
+  /* tooltip 不参与 view transition 快照，避免被转场覆盖层遮挡 */
+  view-transition-name: none;
 }
 
 .sidebar-tooltip[hidden] {
@@ -564,6 +577,7 @@ button {
 
   .app-shell.sidebar-collapsed .sidebar-settings-button {
     justify-content: center;
+    gap: 0;
     width: 44px;
     min-height: 44px;
     padding: 6px;
@@ -582,6 +596,7 @@ button {
   height: 100vh;
   overflow-y: auto;
   background: rgba(250, 251, 249, 0.78);
+  view-transition-name: main-content;
 }
 
 .app-content-header {
@@ -3979,6 +3994,26 @@ textarea {
   }
 }
 
+/* 侧边栏切换时主内容区新旧画面交叉淡入，掩盖文字重排。
+   侧边栏未命名 view-transition-name，不参与快照，继续走自身的 grid 过渡。 */
+::view-transition-old(main-content) {
+  animation: 260ms ease both;
+  animation-name: main-content-fade-out;
+}
+
+::view-transition-new(main-content) {
+  animation: 320ms ease both;
+  animation-name: main-content-fade-in;
+}
+
+@keyframes main-content-fade-out {
+  to { opacity: 0; }
+}
+
+@keyframes main-content-fade-in {
+  from { opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .app-shell,
   .brand-copy,
@@ -3987,6 +4022,11 @@ textarea {
   .sidebar-settings-button > .lucide-icon,
   .sidebar-collapse-button {
     transition: none;
+  }
+
+  ::view-transition-old(main-content),
+  ::view-transition-new(main-content) {
+    animation: none;
   }
 
   .sidebar-tooltip {
