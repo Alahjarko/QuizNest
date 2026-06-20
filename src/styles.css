@@ -21,6 +21,9 @@
   --shadow-card: 0 8px 24px rgba(40, 51, 43, 0.06);
   --shadow-floating: 0 20px 50px rgba(30, 39, 33, 0.14);
   --content-max: 1280px;
+  --sidebar-width-expanded: 248px;
+  --sidebar-width-collapsed: 72px;
+  --sidebar-transition: 190ms cubic-bezier(0.22, 1, 0.36, 1);
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -81,13 +84,14 @@ button {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 288px minmax(0, 1fr);
+  grid-template-columns: var(--sidebar-width-expanded) minmax(0, 1fr);
   height: 100vh;
   min-height: 100vh;
   overflow: hidden;
   background:
     radial-gradient(circle at 0% 0%, rgba(230, 239, 234, 0.86), transparent 34rem),
     linear-gradient(135deg, #fbfcfa 0%, #f4f6f3 100%);
+  transition: grid-template-columns var(--sidebar-transition);
 }
 
 .app-sidebar {
@@ -105,13 +109,18 @@ button {
 }
 
 .sidebar-brand-block {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 2px 2px 14px;
 }
 
 .sidebar-brand {
   display: flex;
   align-items: center;
+  flex: 1;
   gap: 10px;
+  min-width: 0;
   width: 100%;
   border: 0;
   border-radius: 8px;
@@ -123,6 +132,50 @@ button {
 
 .sidebar-brand:hover {
   background: rgba(255, 255, 255, 0.58);
+}
+
+.brand-copy,
+.sidebar-nav-item > span,
+.sidebar-settings-copy,
+.sidebar-settings-button > .lucide-icon {
+  transition:
+    opacity 120ms ease,
+    visibility 120ms ease;
+}
+
+.sidebar-collapse-button {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  padding: 0;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    transform 150ms ease;
+}
+
+.sidebar-collapse-button:hover {
+  border-color: rgba(45, 107, 82, 0.12);
+  background: rgba(255, 255, 255, 0.58);
+  color: var(--primary-strong);
+}
+
+.sidebar-collapse-button:active {
+  transform: scale(0.96);
+}
+
+.sidebar-collapse-button:focus-visible,
+.sidebar-nav-item:focus-visible,
+.sidebar-settings-button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .sidebar-scroll {
@@ -404,6 +457,124 @@ button {
 
 .sidebar-settings-menu[hidden] {
   display: none;
+}
+
+.sidebar-tooltip {
+  position: fixed;
+  z-index: 80;
+  transform: translateY(-50%);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 6px 9px;
+  box-shadow: var(--shadow-floating);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.2;
+  pointer-events: none;
+  white-space: nowrap;
+  animation: sidebar-tooltip-in 120ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sidebar-tooltip[hidden] {
+  display: none;
+}
+
+@keyframes sidebar-tooltip-in {
+  from {
+    opacity: 0;
+    transform: translate(-4px, -50%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, -50%);
+  }
+}
+
+@media (min-width: 761px) {
+  .app-shell.sidebar-collapsed {
+    grid-template-columns: var(--sidebar-width-collapsed) minmax(0, 1fr);
+  }
+
+  .app-shell.sidebar-collapsed .app-sidebar {
+    padding-inline: 10px;
+  }
+
+  .app-shell.sidebar-collapsed .sidebar-brand-block {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    padding-inline: 0;
+  }
+
+  .app-shell.sidebar-collapsed .sidebar-brand {
+    flex: none;
+    justify-content: center;
+    width: 44px;
+    padding: 3px;
+  }
+
+  .app-shell.sidebar-collapsed .sidebar-brand .brand-mark {
+    width: 38px;
+    height: 38px;
+  }
+
+  .app-shell.sidebar-collapsed .brand-copy,
+  .app-shell.sidebar-collapsed .sidebar-nav-item > span,
+  .app-shell.sidebar-collapsed .sidebar-settings-copy,
+  .app-shell.sidebar-collapsed .sidebar-settings-button > .lucide-icon {
+    width: 0;
+    min-width: 0;
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  .app-shell.sidebar-collapsed .sidebar-scroll {
+    padding-inline: 0;
+  }
+
+  .app-shell.sidebar-collapsed .sidebar-nav {
+    justify-items: center;
+  }
+
+  .app-shell.sidebar-collapsed .sidebar-nav-item {
+    position: relative;
+    justify-content: center;
+    width: 44px;
+    min-height: 42px;
+    padding: 9px;
+  }
+
+  .app-shell.sidebar-collapsed .sidebar-nav-item.active {
+    box-shadow:
+      inset 0 0 0 1px rgba(33, 111, 82, 0.14),
+      inset 3px 0 0 var(--primary);
+  }
+
+  .app-shell.sidebar-collapsed .sidebar-section {
+    display: none;
+  }
+
+  .app-shell.sidebar-collapsed .sidebar-footer {
+    display: grid;
+    justify-items: center;
+  }
+
+  .app-shell.sidebar-collapsed .sidebar-settings-button {
+    justify-content: center;
+    width: 44px;
+    min-height: 44px;
+    padding: 6px;
+  }
+
+  .app-shell.sidebar-collapsed .sidebar-settings-menu {
+    right: auto;
+    bottom: 0;
+    left: calc(100% + 10px);
+    width: 220px;
+  }
 }
 
 .app-main {
@@ -3108,6 +3279,10 @@ textarea {
     padding-bottom: 8px;
   }
 
+  .sidebar-collapse-button {
+    display: none;
+  }
+
   .sidebar-scroll {
     max-height: 32vh;
   }
@@ -3805,6 +3980,19 @@ textarea {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .app-shell,
+  .brand-copy,
+  .sidebar-nav-item > span,
+  .sidebar-settings-copy,
+  .sidebar-settings-button > .lucide-icon,
+  .sidebar-collapse-button {
+    transition: none;
+  }
+
+  .sidebar-tooltip {
+    animation: none;
+  }
+
   .home-action-primary,
   .home-action-secondary button {
     transition: none;
@@ -3860,6 +4048,7 @@ textarea {
   }
 
   .sidebar-brand:hover,
+  .sidebar-collapse-button:hover,
   .sidebar-nav-item:hover,
   .sidebar-note-item:hover,
   .sidebar-notebook-note:hover,
@@ -4251,6 +4440,7 @@ textarea {
 }
 
 :root.dark .sidebar-brand:hover,
+:root.dark .sidebar-collapse-button:hover,
 :root.dark .sidebar-nav-item:hover,
 :root.dark .sidebar-note-item:hover,
 :root.dark .sidebar-notebook-note:hover,

@@ -5,11 +5,14 @@ import { escapeHtml } from "../utils/markdown.js";
 
 let cleanupLayoutEvents = null;
 const SIDEBAR_NOTEBOOK_STATE_KEY = "quiznest:sidebar:notebook-state";
+const SIDEBAR_MODE_KEY = "quiznest:sidebar-mode";
+const SIDEBAR_MODE_EXPANDED = "expanded";
+const SIDEBAR_MODE_COLLAPSED = "collapsed";
 const UNFILED_NOTEBOOK_STATE_ID = "__unfiled__";
 
 export const SIDEBAR_NAV_ITEMS = [
   { path: "/", label: "首页", icon: "home", match: (segments) => segments.length === 0 },
-  { path: "/notebooks", label: "笔记本", icon: "folder", match: (segments) => segments[0] === "notebooks" },
+  { path: "/notebooks", label: "笔记本", icon: "folder", match: (segments) => ["notebooks", "note"].includes(segments[0]) },
   { path: "/pdf-note", label: "PDF 笔记", icon: "file-text", match: (segments) => segments[0] === "pdf-note" },
   { path: "/sets", label: "题组库", icon: "library", match: (segments) => segments[0] === "sets" || segments[0] === "practice" },
   { path: "/wrong", label: "错题本", icon: "circle-alert", match: (segments) => segments[0] === "wrong" },
@@ -32,9 +35,11 @@ export async function getAppLayoutData() {
 
 export function renderAppLayout({ route, title, notes, notebooks = [], profile }) {
   const notebookGroups = buildNotebookGroups(notes, notebooks, route, readSidebarNotebookState());
+  const sidebarMode = readSidebarMode();
+  const sidebarCollapsed = sidebarMode === SIDEBAR_MODE_COLLAPSED;
   return `
-    <div class="app-shell">
-      <aside class="app-sidebar" aria-label="QuizNest 导航">
+    <div class="app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}" data-sidebar-mode="${sidebarMode}">
+      <aside class="app-sidebar" id="app-sidebar" aria-label="QuizNest 导航">
         <div class="sidebar-brand-block">
           <button class="sidebar-brand" data-nav="/" type="button" aria-label="返回首页">
             <span class="brand-mark">QN</span>
@@ -42,6 +47,17 @@ export function renderAppLayout({ route, title, notes, notebooks = [], profile }
               <strong>${escapeHtml(APP_NAME)}</strong>
               <small>${escapeHtml(APP_TAGLINE)}</small>
             </span>
+          </button>
+          <button
+            class="sidebar-collapse-button"
+            data-sidebar-collapse-toggle
+            type="button"
+            aria-controls="app-sidebar"
+            aria-pressed="${sidebarCollapsed}"
+            aria-label="${sidebarCollapsed ? "展开侧边栏" : "收起侧边栏"}"
+            title="${sidebarCollapsed ? "展开侧边栏" : "收起侧边栏"}"
+          >
+            ${icon(sidebarCollapsed ? "panel-left-open" : "panel-left-close")}
           </button>
         </div>
 
@@ -69,7 +85,7 @@ export function renderAppLayout({ route, title, notes, notebooks = [], profile }
               <span>设置</span>
             </button>
           </div>
-          <button class="sidebar-settings-button ${["settings", "stats"].includes(route.segments[0]) ? "active" : ""}" type="button" data-sidebar-settings-toggle aria-expanded="false">
+          <button class="sidebar-settings-button ${["settings", "stats"].includes(route.segments[0]) ? "active" : ""}" type="button" data-sidebar-settings-toggle aria-expanded="false" aria-label="打开个人资料与设置" title="个人资料与设置">
             <span class="sidebar-profile-avatar">${renderProfileAvatar(profile)}</span>
             <span class="sidebar-settings-copy">
               <strong>${escapeHtml(profile.displayName)}</strong>
@@ -78,6 +94,7 @@ export function renderAppLayout({ route, title, notes, notebooks = [], profile }
             ${icon("chevron-up")}
           </button>
         </div>
+        <div class="sidebar-tooltip" data-sidebar-tooltip role="tooltip" hidden></div>
       </aside>
 
       <section class="app-main">
@@ -100,6 +117,10 @@ export function bindAppLayout(root, { navigate }) {
 
   const menu = root.querySelector("[data-sidebar-settings-menu]");
   const toggle = root.querySelector("[data-sidebar-settings-toggle]");
+  const shell = root.querySelector(".app-shell");
+  const collapseToggle = root.querySelector("[data-sidebar-collapse-toggle]");
+  const tooltip = root.querySelector("[data-sidebar-tooltip]");
+  const tooltipSources = Array.from(root.querySelectorAll("[data-sidebar-tooltip-label]"));
   const notebookDetails = Array.from(root.querySelectorAll("[data-sidebar-notebook-id]"));
 
   const closeMenu = () => {
@@ -114,6 +135,38 @@ export function bindAppLayout(root, { navigate }) {
     toggle.setAttribute("aria-expanded", String(!menu.hidden));
   };
 
+  const hideTooltip = () => {
+    if (!tooltip) return;
+    tooltip.hidden = true;
+    tooltip.textContent = "";
+  };
+
+  const showTooltip = (event) => {
+    if (!tooltip || !shell?.classList.contains("sidebar-collapsed") || window.matchMedia("(max-width: 760px)").matches) return;
+    const source = event.currentTarget;
+    const label = source.dataset.sidebarTooltipLabel;
+    if (!label) return;
+    const rect = source.getBoundingClientRect();
+    tooltip.textContent = label;
+    tooltip.style.left = `${Math.round(rect.right + 10)}px`;
+    tooltip.style.top = `${Math.round(rect.top + rect.height / 2)}px`;
+    tooltip.hidden = false;
+  };
+
+  const applySidebarMode = (mode) => {
+    if (!shell || !collapseToggle) return;
+    const collapsed = mode === SIDEBAR_MODE_COLLAPSED;
+    shell.classList.toggle("sidebar-collapsed", collapsed);
+    shell.dataset.sidebarMode = collapsed ? SIDEBAR_MODE_COLLAPSED : SIDEBAR_MODE_EXPANDED;
+    collapseToggle.setAttribute("aria-pressed", String(collapsed));
+    collapseToggle.setAttribute("aria-label", collapsed ? "展开侧边栏" : "收起侧边栏");
+    collapseToggle.setAttribute("title", collapsed ? "展开侧边栏" : "收起侧边栏");
+    collapseToggle.innerHTML = icon(collapsed ? "panel-left-open" : "panel-left-close");
+    writeSidebarMode(collapsed ? SIDEBAR_MODE_COLLAPSED : SIDEBAR_MODE_EXPANDED);
+    closeMenu();
+    hideTooltip();
+  };
+
   root.querySelectorAll("[data-nav]").forEach((button) => {
     button.addEventListener("click", () => {
       closeMenu();
@@ -124,6 +177,17 @@ export function bindAppLayout(root, { navigate }) {
   toggle?.addEventListener("click", (event) => {
     event.stopPropagation();
     toggleMenu();
+  });
+
+  collapseToggle?.addEventListener("click", () => {
+    applySidebarMode(shell?.classList.contains("sidebar-collapsed") ? SIDEBAR_MODE_EXPANDED : SIDEBAR_MODE_COLLAPSED);
+  });
+
+  tooltipSources.forEach((source) => {
+    source.addEventListener("mouseenter", showTooltip);
+    source.addEventListener("mouseleave", hideTooltip);
+    source.addEventListener("focus", showTooltip);
+    source.addEventListener("blur", hideTooltip);
   });
 
   const onDocumentPointerDown = (event) => {
@@ -147,6 +211,12 @@ export function bindAppLayout(root, { navigate }) {
   document.addEventListener("pointerdown", onDocumentPointerDown);
   document.addEventListener("keydown", onDocumentKeydown);
   cleanupLayoutEvents = () => {
+    tooltipSources.forEach((source) => {
+      source.removeEventListener("mouseenter", showTooltip);
+      source.removeEventListener("mouseleave", hideTooltip);
+      source.removeEventListener("focus", showTooltip);
+      source.removeEventListener("blur", hideTooltip);
+    });
     notebookDetails.forEach((details) => details.removeEventListener("toggle", onNotebookToggle));
     document.removeEventListener("pointerdown", onDocumentPointerDown);
     document.removeEventListener("keydown", onDocumentKeydown);
@@ -156,7 +226,7 @@ export function bindAppLayout(root, { navigate }) {
 function renderNavItem(item, route) {
   const active = item.match(route.segments);
   return `
-    <button class="sidebar-nav-item ${active ? "active" : ""}" data-nav="${item.path}" type="button" ${active ? 'aria-current="page"' : ""}>
+    <button class="sidebar-nav-item ${active ? "active" : ""}" data-nav="${item.path}" data-sidebar-tooltip-label="${escapeHtml(item.label)}" type="button" aria-label="${escapeHtml(item.label)}" title="${escapeHtml(item.label)}" ${active ? 'aria-current="page"' : ""}>
       ${icon(item.icon)}
       <span>${escapeHtml(item.label)}</span>
     </button>
@@ -252,6 +322,24 @@ function writeSidebarNotebookState(state) {
   }
 }
 
+function readSidebarMode() {
+  try {
+    return window.localStorage.getItem(SIDEBAR_MODE_KEY) === SIDEBAR_MODE_COLLAPSED
+      ? SIDEBAR_MODE_COLLAPSED
+      : SIDEBAR_MODE_EXPANDED;
+  } catch {
+    return SIDEBAR_MODE_EXPANDED;
+  }
+}
+
+function writeSidebarMode(mode) {
+  try {
+    window.localStorage.setItem(SIDEBAR_MODE_KEY, mode);
+  } catch {
+    // localStorage may be unavailable in restricted WebViews; expanded mode remains the default.
+  }
+}
+
 function renderNotebookNoteItem(note, route) {
   const active = route.segments[0] === "note" && route.segments[1] === note.id;
   return `
@@ -291,7 +379,9 @@ function icon(name) {
     "file-text": `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h6"/>`,
     "user-round": `<circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/>`,
     "chevron-up": `<path d="m18 15-6-6-6 6"/>`,
-    "chevron-right": `<path d="m9 18 6-6-6-6"/>`
+    "chevron-right": `<path d="m9 18 6-6-6-6"/>`,
+    "panel-left-close": `<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/>`,
+    "panel-left-open": `<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m13 9 3 3-3 3"/>`
   };
 
   return `<svg class="lucide-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${paths[name] || ""}</svg>`;
