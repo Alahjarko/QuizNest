@@ -1644,8 +1644,12 @@ button:disabled {
 
 .profile-metric-strip {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  border: 1px solid rgba(220, 227, 223, 0.92);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 10px 30px rgba(35, 54, 45, 0.06);
+  overflow: hidden;
 }
 
 .profile-metric-strip > div {
@@ -1653,16 +1657,10 @@ button:disabled {
   justify-items: center;
   gap: 4px;
   padding: 16px 12px;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(220, 227, 223, 0.92);
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
 }
 
-.profile-metric-strip > div:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(33, 111, 82, 0.08);
+.profile-metric-strip > div + div {
+  border-left: 1px solid var(--line);
 }
 
 .profile-metric-strip strong {
@@ -1678,22 +1676,10 @@ button:disabled {
 .profile-activity-card {
   min-width: 0;
   border: 1px solid rgba(220, 227, 223, 0.92);
-  border-radius: 12px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.94);
   padding: 22px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.profile-activity-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(33, 111, 82, 0.04);
-}
-
-.profile-activity-card.learning-primary-heatmap:hover,
-.profile-activity-card.token-heatmap-card:hover {
-  transform: none;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 10px 30px rgba(35, 54, 45, 0.06);
 }
 
 .profile-period-tabs {
@@ -3528,6 +3514,14 @@ textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .profile-metric-strip > div + div {
+    border-left: 0;
+  }
+
+  .profile-metric-strip > div {
+    border-bottom: 1px solid var(--line);
+  }
+
   .profile-lower-grid {
     grid-template-columns: 1fr;
   }
@@ -3656,25 +3650,22 @@ textarea {
 .today-strip {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
   margin-top: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: var(--shadow-card);
 }
 
 .today-strip > div {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
-  padding: 16px;
-  background: var(--paper);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+  padding: var(--space-4) var(--space-5);
 }
 
-.today-strip > div:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(33, 111, 82, 0.08);
+.today-strip > div + div {
+  border-left: 1px solid var(--border);
 }
 
 .today-strip span {
@@ -3999,6 +3990,15 @@ textarea {
   .today-strip {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+
+  .today-strip > div:nth-child(4) {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .today-strip > div:nth-child(5) {
+    border-top: 1px solid var(--border);
+  }
 }
 
 @media (max-width: 760px) {
@@ -4022,6 +4022,21 @@ textarea {
 
   .today-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .today-strip > div,
+  .today-strip > div:nth-child(4),
+  .today-strip > div:nth-child(5) {
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  .today-strip > div:nth-child(-n + 2) {
+    border-top: 0;
+  }
+
+  .today-strip > div:nth-child(even) {
+    border-left: 1px solid var(--border);
   }
 
   .home-action-secondary,
@@ -4979,7 +4994,11 @@ textarea {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-top: var(--space-6);
-  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--paper);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
 }
 
 .archive-metric {
@@ -4988,17 +5007,11 @@ textarea {
   justify-content: space-between;
   gap: var(--space-3);
   min-height: 84px;
-  padding: 20px 24px;
-  background: var(--paper);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+  padding: var(--space-5);
 }
 
-.archive-metric:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(33, 111, 82, 0.08);
+.archive-metric + .archive-metric {
+  border-left: 1px solid var(--border);
 }
 
 .archive-metric strong {
@@ -5372,6 +5385,15 @@ textarea {
 
   .archive-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .archive-metric:nth-child(3) {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .archive-metric:nth-child(4) {
+    border-top: 1px solid var(--border);
   }
 
   .archive-filter-tabs {
@@ -6222,12 +6244,15 @@ textarea {
 }
 
 .learning-metric-strip {
-  /* Inherits bento grid from .profile-metric-strip */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-color: var(--border);
+  background: var(--paper);
+  box-shadow: var(--shadow-card);
 }
 
 .learning-metric-strip > div {
   justify-items: start;
-  padding: 16px 20px;
+  padding: var(--space-4) var(--space-5);
 }
 
 .learning-week-summary {
@@ -6235,11 +6260,9 @@ textarea {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--space-6);
   align-items: end;
-  border-radius: 12px;
-  background: linear-gradient(135deg, var(--review-soft) 0%, rgba(255,255,255,0.4) 100%);
-  border: 1px solid color-mix(in srgb, var(--review) 20%, transparent);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.02);
-  padding: 24px 28px;
+  border-left: 3px solid var(--review);
+  background: linear-gradient(90deg, var(--review-soft), transparent 78%);
+  padding: var(--space-5) var(--space-6);
 }
 
 .learning-week-summary h2 {
