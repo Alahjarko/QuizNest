@@ -16,6 +16,7 @@ agent-note/
 *.key
 *.pem
 *.p12
+*.jks
 *.mobileprovision
 *.keystore
 key.properties
