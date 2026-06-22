@@ -48,17 +48,7 @@ export function renderAppLayout({ route, title, notes, notebooks = [], profile }
               <small>${escapeHtml(APP_TAGLINE)}</small>
             </span>
           </button>
-          <button
-            class="sidebar-collapse-button"
-            data-sidebar-collapse-toggle
-            type="button"
-            aria-controls="app-sidebar"
-            aria-pressed="${sidebarCollapsed}"
-            aria-label="${sidebarCollapsed ? "展开侧边栏" : "收起侧边栏"}"
-            title="${sidebarCollapsed ? "展开侧边栏" : "收起侧边栏"}"
-          >
-            ${icon(sidebarCollapsed ? "panel-left-open" : "panel-left-close")}
-          </button>
+
         </div>
 
         <div class="sidebar-scroll">
@@ -99,6 +89,17 @@ export function renderAppLayout({ route, title, notes, notebooks = [], profile }
 
       <section class="app-main">
         <header class="app-content-header">
+          <button
+            class="sidebar-collapse-button"
+            data-sidebar-collapse-toggle
+            type="button"
+            aria-controls="app-sidebar"
+            aria-pressed="${sidebarCollapsed}"
+            aria-label="${sidebarCollapsed ? "展开侧边栏" : "收起侧边栏"}"
+            title="${sidebarCollapsed ? "展开侧边栏" : "收起侧边栏"}"
+          >
+            ${icon(sidebarCollapsed ? "panel-left-open" : "panel-left-close")}
+          </button>
           <div>
             <p>${escapeHtml(APP_NAME)}</p>
             <h1>${escapeHtml(title)}</h1>

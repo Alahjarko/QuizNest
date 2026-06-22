@@ -20,7 +20,7 @@ const HEATMAP_MODES = [
 ];
 const DEFAULT_HEATMAP_MODES = {
   token: "daily",
-  practice: "month"
+  practice: "daily"
 };
 
 const activeHeatmapModes = { ...DEFAULT_HEATMAP_MODES };
@@ -183,7 +183,7 @@ export async function renderStatsPage(container, app) {
         </article>
       </section>
 
-      <details class="token-usage-disclosure">
+      <details class="token-usage-disclosure" open>
         <summary>
           <span><strong>模型用量</strong><small>Token 活动、常用模型与最近学习日</small></span>
           <span>${formatCompact(totalTokens)} Token</span>
