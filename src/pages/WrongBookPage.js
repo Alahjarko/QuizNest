@@ -25,9 +25,11 @@ import { typesetMath } from "../utils/math.js";
 const LABELS = ["A", "B", "C", "D"];
 
 export async function renderWrongBookPage(container, app) {
-  const notes = (await getAll("notes")).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  const rawWrongItems = await getAll("wrongItems");
+  const uniqueNoteIds = [...new Set(rawWrongItems.map((item) => item.noteId).filter(Boolean))];
+  const notes = (await Promise.all(uniqueNoteIds.map(id => get("notes", id)))).filter(Boolean).sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
   const reviewCardMap = await getReviewCardMap();
-  const allWrongItems = (await getAll("wrongItems"))
+  const allWrongItems = rawWrongItems
     .map((item) => {
       const reviewCard = reviewCardMap.get(item.id);
       return {
@@ -44,7 +46,7 @@ export async function renderWrongBookPage(container, app) {
       .filter((item) => filters.noteId === "all" || item.noteId === filters.noteId)
       .map((item) => item.section || "未标注章节")
   );
-  const filtered = allWrongItems.filter((item) => matchFilters(item, filters));
+  const filtered = allWrongItems;
   const recentThreshold = Date.now() - 7 * 24 * 60 * 60 * 1000;
   const counts = {
     all: allWrongItems.length,
@@ -128,24 +130,7 @@ export async function renderWrongBookPage(container, app) {
     <div class="empty-state archive-filter-empty" data-wrong-filter-empty hidden>没有符合搜索条件的错题。</div>
   `;
 
-  container.querySelectorAll("[data-filter]").forEach((select) => {
-    select.addEventListener("change", () => {
-      const next = {
-        ...filters,
-        [select.dataset.filter]: select.value
-      };
-      if (select.dataset.filter === "noteId") next.section = "all";
-      app.navigate(`/wrong?${new URLSearchParams(next).toString()}`);
-    });
-  });
-
-  container.querySelectorAll("[data-status-filter]").forEach((button) => {
-    button.addEventListener("click", () => {
-      app.navigate(`/wrong?${new URLSearchParams({ ...filters, status: button.dataset.statusFilter }).toString()}`);
-    });
-  });
-
-  bindWrongSearch(container);
+  bindWrongFilters(container, filters);
 
   container.querySelector("[data-analyze-weakness]").addEventListener("click", async () => {
     await analyzeWeakness(filters, allWrongItems, noteMap);
@@ -248,7 +233,7 @@ function renderWrongItem(item, note) {
     .toLocaleLowerCase();
 
   return `
-    <article class="mistake-card" data-wrong-card data-search="${escapeHtml(searchText)}">
+    <article class="mistake-card" data-wrong-card data-note-id="${escapeHtml(item.noteId || 'all')}" data-section="${escapeHtml(item.section || 'all')}" data-type="${escapeHtml(item.questionType || 'all')}" data-status-open="${!item.mastered}" data-status-mastered="${!!item.mastered}" data-status-due="${!!item.reviewDue}" data-search="${escapeHtml(searchText)}">
       <div class="mistake-card-index" aria-hidden="true">${item.mastered ? "✓" : "!"}</div>
       <div class="mistake-card-main">
         <div class="mistake-card-heading">
@@ -340,20 +325,59 @@ function compactText(value, limit) {
   return `${text.slice(0, limit).trim()}...`;
 }
 
-function bindWrongSearch(container) {
+function bindWrongFilters(container, initialFilters) {
   const input = container.querySelector("[data-wrong-search]");
-  const cards = [...container.querySelectorAll("[data-wrong-card]")];
+  const items = [...container.querySelectorAll("[data-wrong-card]")];
   const empty = container.querySelector("[data-wrong-filter-empty]");
-  input?.addEventListener("input", () => {
-    const query = input.value.trim().toLocaleLowerCase();
+  const statusButtons = [...container.querySelectorAll("[data-status-filter]")];
+  const selects = [...container.querySelectorAll("[data-filter]")];
+
+  let currentFilters = { ...initialFilters };
+
+  const applyFilters = () => {
+    const query = input?.value.trim().toLocaleLowerCase() || "";
     let visibleCount = 0;
-    cards.forEach((card) => {
-      const visible = !query || card.dataset.search.includes(query);
-      card.hidden = !visible;
-      if (visible) visibleCount += 1;
+
+    items.forEach((item) => {
+      let match = true;
+      if (currentFilters.noteId !== "all" && item.dataset.noteId !== currentFilters.noteId) match = false;
+      if (currentFilters.section !== "all" && item.dataset.section !== currentFilters.section) match = false;
+      if (currentFilters.type !== "all" && item.dataset.type !== currentFilters.type) match = false;
+      if (currentFilters.status === "open" && item.dataset.statusOpen !== "true") match = false;
+      if (currentFilters.status === "mastered" && item.dataset.statusMastered !== "true") match = false;
+      if (currentFilters.status === "due" && item.dataset.statusDue !== "true") match = false;
+      if (query && !item.dataset.search.includes(query)) match = false;
+      
+      item.hidden = !match;
+      if (match) visibleCount += 1;
     });
-    if (empty) empty.hidden = visibleCount > 0 || cards.length === 0;
+
+    if (empty) empty.hidden = visibleCount > 0 || items.length === 0;
+  };
+
+  input?.addEventListener("input", applyFilters);
+
+  statusButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      currentFilters.status = button.dataset.statusFilter;
+      statusButtons.forEach((item) => item.classList.toggle("active", item === button));
+      applyFilters();
+    });
   });
+
+  selects.forEach((select) => {
+    select.addEventListener("change", () => {
+      currentFilters[select.dataset.filter] = select.value;
+      if (select.dataset.filter === "noteId") {
+        currentFilters.section = "all";
+        const sectionSelect = container.querySelector('[data-filter="section"]');
+        if (sectionSelect) sectionSelect.value = "all";
+      }
+      applyFilters();
+    });
+  });
+
+  applyFilters();
 }
 
 async function analyzeWeakness(filters, allWrongItems, noteMap) {
