@@ -1555,6 +1555,7 @@ button:disabled {
   color: white;
   font-size: 12px;
   font-weight: 800;
+  text-align: center;
   opacity: 0;
   transition: opacity 0.18s ease;
 }
@@ -4645,7 +4646,7 @@ textarea {
 :root.dark .mini-set-card,
 :root.dark .set-card,
 :root.dark .analytics-panel,
-:root.dark .profile-metric-strip,
+:root.dark .profile-metric-strip > div,
 :root.dark .profile-activity-card,
 :root.dark .set-strip article,
 :root.dark .wrong-filters,
@@ -6439,7 +6440,8 @@ textarea {
 }
 
 :root.dark .learning-week-summary {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--review-soft) 70%, transparent), transparent 78%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--review-soft) 40%, transparent) 0%, rgba(255, 255, 255, 0.03) 100%);
+  border-color: color-mix(in srgb, var(--review) 30%, transparent);
 }
 
 @media (max-width: 900px) {
@@ -6675,4 +6677,11 @@ textarea {
   .settings-anchor-section .switch-row {
     align-self: flex-start;
   }
+}
+
+:root.dark .today-strip > div:hover,
+:root.dark .profile-metric-strip > div:hover,
+:root.dark .archive-metric:hover,
+:root.dark .profile-activity-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
