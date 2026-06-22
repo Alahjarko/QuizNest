@@ -6,6 +6,7 @@
 .vscode/
 .kunsdd/
 agent_log/
+agent-note/
 
 # Environment / secrets
 .env
