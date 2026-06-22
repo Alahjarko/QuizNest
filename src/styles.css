@@ -5441,22 +5441,32 @@ textarea {
 }
 
 .mistake-advanced-filters {
-  margin-top: var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  background: var(--paper);
+  margin-top: var(--space-4);
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease;
+}
+
+.mistake-advanced-filters:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+}
+:root.dark .mistake-advanced-filters:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .mistake-advanced-filters > summary {
   display: flex;
   align-items: center;
-  min-height: 42px;
-  color: var(--ink-secondary);
-  padding: 0 var(--space-4);
-  font-size: 13px;
-  font-weight: 750;
+  min-height: 48px;
+  color: var(--muted);
+  padding: 0 16px;
+  font-size: 0.9rem;
+  font-weight: 600;
   cursor: pointer;
   list-style: none;
+  user-select: none;
 }
 
 .mistake-advanced-filters > summary::-webkit-details-marker {
@@ -5465,10 +5475,11 @@ textarea {
 
 .mistake-advanced-filters > summary::after {
   margin-left: auto;
-  content: "+";
-  color: var(--ink-faint);
-  font-size: 18px;
-  font-weight: 400;
+  content: "＋";
+  color: var(--muted);
+  font-size: 1.1rem;
+  font-weight: 300;
+  transition: transform 0.2s ease;
 }
 
 .mistake-advanced-filters[open] > summary::after {
@@ -5476,14 +5487,58 @@ textarea {
 }
 
 .mistake-advanced-filters .wrong-filters {
-  width: auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
   margin: 0;
-  padding: 0 var(--space-4) var(--space-4);
+  padding: 0 16px 20px;
   border: 0;
-  border-top: 1px solid var(--border);
+  border-top: 1px dashed var(--line);
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+  padding-top: 16px;
+}
+
+.mistake-advanced-filters .wrong-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mistake-advanced-filters .wrong-filters label span {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mistake-advanced-filters .wrong-filters select {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23999999'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px;
+}
+
+.mistake-advanced-filters .wrong-filters select:hover {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+}
+
+.mistake-advanced-filters .wrong-filters select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 .mistake-journal {
@@ -6684,4 +6739,190 @@ textarea {
 :root.dark .archive-metric:hover,
 :root.dark .profile-activity-card:hover {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Learning loop: grading evidence, mastery and spaced review */
+.grading-diagnosis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.grading-diagnosis > div {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-3) 86%, transparent);
+}
+
+.grading-diagnosis .wide {
+  grid-column: 1 / -1;
+}
+
+.grading-diagnosis span,
+.grading-step-row span,
+.grading-history span,
+.grading-history small {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.grading-step-list {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.grading-step-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 12px;
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface-3);
+}
+
+.grading-step-row > div {
+  display: grid;
+  gap: 4px;
+}
+
+.grading-step-row b {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.grading-feedback-actions {
+  margin-top: 16px;
+}
+
+.grading-history {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.grading-history summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.grading-history > div {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.grading-history article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-3);
+}
+
+.grading-history small {
+  grid-column: 1 / -1;
+}
+
+.grading-correction-form {
+  display: grid;
+  gap: 16px;
+}
+
+.grading-correction-form > label:not(.checkbox-row) {
+  display: grid;
+  gap: 7px;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.checkbox-row input {
+  width: auto;
+}
+
+.knowledge-mastery-card {
+  margin-top: var(--space-5);
+  border-radius: 12px;
+}
+
+.knowledge-mastery-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.knowledge-mastery-row {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.knowledge-mastery-row:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+:root.dark .knowledge-mastery-row:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.knowledge-mastery-row.weak {
+  border-color: color-mix(in srgb, var(--review) 45%, var(--line));
+  background: color-mix(in srgb, var(--review) 6%, var(--surface-3));
+  box-shadow: inset 0 0 20px color-mix(in srgb, var(--review) 5%, transparent), 0 0 16px color-mix(in srgb, var(--review) 12%, transparent);
+}
+
+.knowledge-mastery-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.knowledge-mastery-heading > div {
+  display: grid;
+  gap: 3px;
+}
+
+.knowledge-mastery-heading span,
+.knowledge-mastery-meta,
+.knowledge-mastery-row p {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.knowledge-mastery-heading b {
+  color: var(--accent);
+  font-size: 1.5rem;
+}
+
+.knowledge-mastery-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 14px;
+}
+
+.knowledge-mastery-row p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+@media (max-width: 760px) {
+  .grading-diagnosis,
+  .knowledge-mastery-list {
+    grid-template-columns: 1fr;
+  }
 }

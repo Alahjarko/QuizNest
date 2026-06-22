@@ -1,5 +1,5 @@
 const DB_NAME = "ai-study-assistant-db";
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 const SETTINGS_ID = "default";
 
 let dbPromise;
@@ -96,6 +96,38 @@ export function openDb() {
       const learningProgress = getOrCreateStore(db, tx, "learningProgress");
       ensureIndex(learningProgress, "noteId", "noteId");
       ensureIndex(learningProgress, "updatedAt", "updatedAt");
+
+      const gradingAttempts = getOrCreateStore(db, tx, "gradingAttempts");
+      ensureIndex(gradingAttempts, "questionId", "questionId");
+      ensureIndex(gradingAttempts, "answerId", "answerId");
+      ensureIndex(gradingAttempts, "wrongItemId", "wrongItemId");
+      ensureIndex(gradingAttempts, "source", "source");
+      ensureIndex(gradingAttempts, "createdAt", "createdAt");
+
+      const knowledgePoints = getOrCreateStore(db, tx, "knowledgePoints");
+      ensureIndex(knowledgePoints, "noteId", "noteId");
+      ensureIndex(knowledgePoints, "normalizedLabel", "normalizedLabel");
+      ensureIndex(knowledgePoints, "updatedAt", "updatedAt");
+
+      const knowledgeLinks = getOrCreateStore(db, tx, "knowledgeLinks");
+      ensureIndex(knowledgeLinks, "knowledgePointId", "knowledgePointId");
+      ensureIndex(knowledgeLinks, "sourceType", "sourceType");
+      ensureIndex(knowledgeLinks, "sourceId", "sourceId");
+      ensureIndex(knowledgeLinks, "noteId", "noteId");
+
+      const reviewCards = getOrCreateStore(db, tx, "reviewCards");
+      ensureIndex(reviewCards, "dueAt", "dueAt");
+      ensureIndex(reviewCards, "questionId", "questionId");
+      ensureIndex(reviewCards, "wrongItemId", "wrongItemId");
+      ensureIndex(reviewCards, "knowledgePointId", "knowledgePointId");
+      ensureIndex(reviewCards, "state", "state");
+
+      const reviewLogs = getOrCreateStore(db, tx, "reviewLogs");
+      ensureIndex(reviewLogs, "cardId", "cardId");
+      ensureIndex(reviewLogs, "questionId", "questionId");
+      ensureIndex(reviewLogs, "wrongItemId", "wrongItemId");
+      ensureIndex(reviewLogs, "knowledgePointId", "knowledgePointId");
+      ensureIndex(reviewLogs, "reviewedAt", "reviewedAt");
     };
 
     request.onsuccess = () => resolve(request.result);
