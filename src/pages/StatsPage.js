@@ -1,6 +1,7 @@
 import { showToast } from "../components/Toast.js";
 import { getAll } from "../services/storage/db.js";
 import { getModelUsageRecords } from "../services/modelUsageTracker.js";
+import { getKnowledgeMasterySnapshot } from "../services/knowledgeGraph.js";
 import { getProfile, profileInitials, saveProfile } from "../services/profile.js";
 import { formatDuration } from "../services/studyTracker.js";
 import { readImageFile } from "../utils/file.js";
@@ -27,7 +28,7 @@ const activeHeatmapModes = { ...DEFAULT_HEATMAP_MODES };
 
 export async function renderStatsPage(container, app) {
   app.setContext({ contextKey: "stats" });
-  const [profile, studyDays, usageRecords, notes, sets, questions, answers, wrongItems, chatMessages] = await Promise.all([
+  const [profile, studyDays, usageRecords, notes, sets, questions, answers, wrongItems, chatMessages, knowledgeSnapshot] = await Promise.all([
     getProfile(),
     getAll("studyDays"),
     getModelUsageRecords(),
@@ -36,7 +37,8 @@ export async function renderStatsPage(container, app) {
     getAll("questions"),
     getAll("answers"),
     getAll("wrongItems"),
-    getAll("chatMessages")
+    getAll("chatMessages"),
+    getKnowledgeMasterySnapshot()
   ]);
 
   const todayDate = formatDate(new Date());
@@ -63,6 +65,9 @@ export async function renderStatsPage(container, app) {
   const typeAccuracyRows = buildQuestionTypeAccuracy(questions, answers);
   const activeNotes = buildActiveNoteRows(notes, sets, answers);
   const chatTopics = buildChatTopicRows(notes, chatMessages);
+  const knowledgeRows = knowledgeSnapshot.filter(
+    (item) => item.evidenceCount > 0 || item.wrongCount > 0 || item.chatCount > 0 || item.memoryCount > 0
+  );
 
   container.innerHTML = `
     <section class="profile-page learning-insight-page">
@@ -159,6 +164,17 @@ export async function renderStatsPage(container, app) {
           </div>
           ${renderQuestionTypeAccuracy(typeAccuracyRows)}
         </article>
+      </section>
+
+      <section class="profile-activity-card knowledge-mastery-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Knowledge Mastery</p>
+            <h2>知识点掌握图谱</h2>
+            <p>综合题目、错题、判题历史、复习、解惑与长期记忆形成；分数会随新证据动态变化。</p>
+          </div>
+        </div>
+        ${renderKnowledgeMastery(knowledgeRows)}
       </section>
 
       <section class="learning-analysis-grid">
@@ -655,6 +671,41 @@ function renderQuestionTypeAccuracy(rows) {
               <div class="insight-progress"><i style="width:${row.accuracy || 0}%"></i></div>
             </div>`
         )
+        .join("")}
+    </div>`;
+}
+
+function renderKnowledgeMastery(rows) {
+  if (!rows.length) {
+    return `<div class="empty-state compact">完成练习或带着章节上下文解惑后，这里会形成知识点掌握记录。</div>`;
+  }
+  return `
+    <div class="knowledge-mastery-list">
+      ${rows
+        .slice(0, 10)
+        .map((row) => {
+          const score = row.masteryScore;
+          const trend = row.trend > 3 ? `改善 +${row.trend}` : row.trend < -3 ? `回落 ${row.trend}` : "近期稳定";
+          const typeText = [
+            row.questionTypeErrors.choice ? `选择题 ${row.questionTypeErrors.choice}` : "",
+            row.questionTypeErrors.subjective ? `大题 ${row.questionTypeErrors.subjective}` : ""
+          ]
+            .filter(Boolean)
+            .join(" · ");
+          return `<article class="knowledge-mastery-row ${row.status}">
+            <div class="knowledge-mastery-heading">
+              <div><span>${escapeHtml(row.noteTitle)}</span><strong>${escapeHtml(row.label)}</strong></div>
+              <b>${score === null ? "--" : score}</b>
+            </div>
+            <div class="insight-progress"><i style="width:${score || 0}%"></i></div>
+            <div class="knowledge-mastery-meta">
+              <span>${score === null ? "证据不足" : trend}</span>
+              <span>${row.recentAccuracy === null ? "近 30 天暂无作答" : `近期表现 ${row.recentAccuracy}%`}</span>
+              <span>${typeText || "暂无错题类型集中"}</span>
+            </div>
+            <p><strong>下一步：</strong>${escapeHtml(row.nextAction)}</p>
+          </article>`;
+        })
         .join("")}
     </div>`;
 }

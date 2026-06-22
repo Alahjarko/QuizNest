@@ -1,6 +1,16 @@
+import { openModal } from "../components/Modal.js";
 import { showToast } from "../components/Toast.js";
 import { buildGradingMessages, buildTeachingMessages, normalizeGradeResult } from "../prompts/grading.js";
 import { callJsonCompletion } from "../services/ai/aiClient.js";
+import {
+  applyManualGradingCorrection,
+  getGradingAttempts,
+  gradingErrorCategoryLabel,
+  GRADING_ERROR_CATEGORIES,
+  recordGradingAttempt,
+  recordGradingFailure
+} from "../services/gradingHistory.js";
+import { ensureReviewCard, setReviewCardSuspended } from "../services/reviewScheduler.js";
 import { get, getByIndex, put } from "../services/storage/db.js";
 import { markCheckIn, recordPracticeAnswer } from "../services/studyTracker.js";
 import { readImageFile } from "../utils/file.js";
@@ -30,6 +40,7 @@ export async function renderPracticePage(container, app, setId) {
   const currentIndex = resolveCurrentIndex(app, set.id, questions, answersByQuestion);
   const currentQuestion = questions[currentIndex];
   const currentAnswer = answersByQuestion.get(currentQuestion.id);
+  const gradingAttempts = currentQuestion.type === "subjective" ? await getGradingAttempts(currentQuestion.id) : [];
   const stats = buildStats(questions, answersByQuestion);
 
   app.setContext({
@@ -80,7 +91,7 @@ export async function renderPracticePage(container, app, setId) {
         ${
           currentQuestion.type === "choice"
             ? renderChoiceQuestion(currentQuestion, currentAnswer)
-            : renderSubjectiveQuestion(currentQuestion, currentAnswer)
+            : renderSubjectiveQuestion(currentQuestion, currentAnswer, gradingAttempts)
         }
         <div class="practice-actions">
           <button class="secondary-button" data-prev-question type="button" ${currentIndex === 0 ? "disabled" : ""}>上一题</button>
@@ -117,6 +128,7 @@ export async function renderPracticePage(container, app, setId) {
     bindChoiceEvents(container, app, note, set, currentQuestion, currentAnswer);
   } else {
     bindSubjectiveEvents(container, app, note, set, currentQuestion, currentAnswer, questions, currentIndex);
+    bindManualGradingCorrection(container, app, note, set, currentQuestion, currentAnswer);
   }
 
   resumePendingSubjectiveGradings(note, set, questions, answersByQuestion, app);
@@ -256,7 +268,7 @@ function renderChoiceExplanation(question, answer) {
   `;
 }
 
-function renderSubjectiveQuestion(question, answer) {
+function renderSubjectiveQuestion(question, answer, gradingAttempts = []) {
   const submitted = Boolean(answer?.submitted);
   const pending = Boolean(answer?.gradingPending);
   const failed = Boolean(answer?.gradingError);
@@ -306,7 +318,7 @@ function renderSubjectiveQuestion(question, answer) {
           pending ? "判题中..." : failed ? "重新提交大题" : "提交大题"
         }</button>
       </div>
-      ${submitted && !pending && !failed ? renderSubjectiveFeedback(question, answer) : ""}
+      ${submitted && !pending && !failed ? renderSubjectiveFeedback(question, answer, gradingAttempts) : ""}
     </div>
   `;
 }
@@ -321,7 +333,7 @@ function subjectiveTypeLabel(type) {
   );
 }
 
-function renderSubjectiveFeedback(question, answer) {
+function renderSubjectiveFeedback(question, answer, gradingAttempts = []) {
   const result = answer.gradeResult || {};
   const teaching = answer.aiTeaching || {};
   return `
@@ -330,6 +342,7 @@ function renderSubjectiveFeedback(question, answer) {
       <p><strong>得分：</strong>${Number(answer.score || 0)} / 100</p>
       <p><strong>识别出的答案：</strong>${escapeHtml(result.recognizedAnswer || answer.textAnswer || "未识别")}</p>
       <p><strong>判定理由：</strong>${escapeHtml(result.reason || "无")}</p>
+      ${renderGradingBreakdown(result)}
       ${renderList("做得好的地方", result.strengths)}
       ${renderList("薄弱点", result.weaknesses)}
       <p><strong>参考答案：</strong>${escapeHtml(question.referenceAnswer || "暂无参考答案")}</p>
@@ -344,8 +357,63 @@ function renderSubjectiveFeedback(question, answer) {
             </div>`
           : ""
       }
+      <div class="grading-feedback-actions">
+        <button class="secondary-button" data-correct-grading type="button">纠正本次判定</button>
+      </div>
+      ${renderGradingHistory(gradingAttempts)}
     </section>
   `;
+}
+
+function renderGradingBreakdown(result) {
+  const stepScores = Array.isArray(result.stepScores) ? result.stepScores : [];
+  return `
+    <div class="grading-diagnosis">
+      <div><span>错误类型</span><strong>${escapeHtml(gradingErrorCategoryLabel(result.errorCategory))}</strong></div>
+      <div><span>最早出错步骤</span><strong>${escapeHtml(result.earliestErrorStep || (result.isCorrect ? "无" : "模型未明确指出"))}</strong></div>
+      ${result.errorLocation ? `<div class="wide"><span>错误位置</span><strong>${escapeHtml(result.errorLocation)}</strong></div>` : ""}
+    </div>
+    ${result.manualScoreOverride ? `<div class="status-box">总分已由用户人工纠正；下方保留原 AI 分项，仅供追溯。</div>` : ""}
+    ${result.rubricConsistent === false ? `<div class="status-box">模型返回的分项满分合计为 ${Number(result.rubricMaxScore || 0)}，与 100 分制不一致；已保留模型总分并标记供人工复核。</div>` : ""}
+    ${
+      stepScores.length
+        ? `<div class="grading-step-list">
+            ${stepScores
+              .map(
+                (step) => `<div class="grading-step-row">
+                  <div><strong>${escapeHtml(step.criterion)}</strong><span>${escapeHtml(step.feedback || "")}</span></div>
+                  <b>${Number(step.awardedScore || 0)} / ${Number(step.maxScore || 0)}</b>
+                </div>`
+              )
+              .join("")}
+          </div>`
+        : `<div class="status-box">${result.manualCorrection ? "本次人工纠正未调整分步骤评分。" : "这条结果来自旧版判题，暂无分步骤评分。"}</div>`
+    }
+  `;
+}
+
+function renderGradingHistory(attempts) {
+  if (!attempts.length) return "";
+  return `
+    <details class="grading-history">
+      <summary>查看判题历史（${attempts.length}）</summary>
+      <div>
+        ${attempts
+          .slice()
+          .reverse()
+          .map((attempt) => {
+            const label =
+              attempt.source === "manual" ? "人工纠正" : attempt.context === "review" ? "复习判题" : attempt.context === "legacy" ? "旧版判题" : "AI 判题";
+            const result = attempt.result;
+            return `<article>
+              <span>${escapeHtml(label)} · ${formatDateTime(attempt.createdAt)}</span>
+              <strong>${attempt.status === "error" ? "失败" : `${Number(result?.score || 0)} 分`}</strong>
+              <small>${escapeHtml(attempt.status === "error" ? attempt.errorMessage || "未知错误" : result?.reason || "无判定理由")}</small>
+            </article>`;
+          })
+          .join("")}
+      </div>
+    </details>`;
 }
 
 function renderList(title, values) {
@@ -539,6 +607,65 @@ function bindSubjectiveEvents(container, app, note, set, question, answer, quest
   });
 }
 
+function bindManualGradingCorrection(container, app, note, set, question, answer) {
+  container.querySelector("[data-correct-grading]")?.addEventListener("click", () => {
+    const result = answer?.gradeResult || {};
+    const content = document.createElement("form");
+    content.className = "grading-correction-form";
+    content.innerHTML = `
+      <p>人工纠正会新增一条历史记录，不会覆盖或删除原 AI 判题。</p>
+      <div class="form-grid two-columns">
+        <label><span>纠正后得分</span><input name="score" type="number" min="0" max="100" step="1" value="${Number(answer?.score || 0)}" required /></label>
+        <label><span>错误类型</span><select name="errorCategory">${GRADING_ERROR_CATEGORIES.map(
+          (item) => `<option value="${item.value}" ${(result.errorCategory || (answer?.isCorrect ? "none" : "other")) === item.value ? "selected" : ""}>${item.label}</option>`
+        ).join("")}</select></label>
+      </div>
+      <label class="checkbox-row"><input name="isCorrect" type="checkbox" ${answer?.isCorrect ? "checked" : ""} /><span>整体判定为正确</span></label>
+      <label><span>纠正后的判定理由</span><textarea name="reason" rows="4" required>${escapeHtml(result.reason || "")}</textarea></label>
+      <label><span>纠正备注（可选）</span><textarea name="correctionNote" rows="3" placeholder="例如：模型漏看了第二步的等价变形"></textarea></label>
+      <div class="form-actions"><button class="primary-button" type="submit">保存人工纠正</button></div>
+    `;
+    const modal = openModal({ title: "纠正判题结果", content, width: "620px" });
+    content.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const submit = content.querySelector('button[type="submit"]');
+      submit.disabled = true;
+      try {
+        const formData = new FormData(content);
+        const corrected = await applyManualGradingCorrection({
+          question,
+          answer,
+          score: formData.get("score"),
+          isCorrect: formData.get("isCorrect") === "on",
+          errorCategory: formData.get("errorCategory"),
+          reason: formData.get("reason"),
+          correctionNote: formData.get("correctionNote")
+        });
+        const wrongItem = await get("wrongItems", `wrong_${question.id}`);
+        if (corrected.result.isCorrect && corrected.result.score >= 60 && wrongItem) {
+          await put("wrongItems", {
+            ...wrongItem,
+            mastered: true,
+            dismissedByCorrection: true,
+            gradingCorrectionAttemptId: corrected.attempt.id,
+            lastReviewedAt: nowIso()
+          });
+          await setReviewCardSuspended(wrongItem.id, true);
+        } else if (!corrected.result.isCorrect || corrected.result.score < 60) {
+          await upsertSubjectiveWrongItem(note, set, question, corrected.answer, corrected.result, corrected.answer.aiTeaching || {});
+          await setReviewCardSuspended(`wrong_${question.id}`, false);
+        }
+        modal.close();
+        showToast("人工纠正已保存，原判题记录仍保留", "success");
+        app.refresh();
+      } catch (error) {
+        submit.disabled = false;
+        showToast(`保存纠正失败：${error.message}`, "error");
+      }
+    });
+  });
+}
+
 function resumePendingSubjectiveGradings(note, set, questions, answersByQuestion, app) {
   questions
     .filter((question) => question.type === "subjective")
@@ -578,6 +705,7 @@ async function gradeSubjectiveAnswer({ note, set, question, answer, app }) {
       temperature: 0
     });
     const gradeResult = normalizeGradeResult(rawGrade);
+    const gradingAttempt = await recordGradingAttempt({ question, answer, result: gradeResult, context: "practice" });
     const shouldEnterWrongBook = !gradeResult.isCorrect || gradeResult.score < 60;
     let aiTeaching = {};
 
@@ -611,6 +739,7 @@ async function gradeSubjectiveAnswer({ note, set, question, answer, app }) {
       isCorrect: gradeResult.isCorrect,
       score: gradeResult.score,
       gradeResult,
+      currentGradingAttemptId: gradingAttempt.id,
       aiTeaching,
       gradedAt: nowIso(),
       updatedAt: nowIso()
@@ -624,6 +753,11 @@ async function gradeSubjectiveAnswer({ note, set, question, answer, app }) {
       await upsertSubjectiveWrongItem(note, set, question, submittedAnswer, gradeResult, aiTeaching);
     }
   } catch (error) {
+    try {
+      await recordGradingFailure({ question, answer, context: "practice", errorMessage: error.message });
+    } catch (historyError) {
+      console.warn("保存判题失败历史时出错", historyError);
+    }
     await put("answers", {
       ...answer,
       submitted: true,
@@ -694,7 +828,7 @@ async function upsertChoiceWrongItem(note, set, question, answer) {
   const existing = await get("wrongItems", `wrong_${question.id}`);
   const errorReason = question.wrongOptionExplanations?.[selectedOption] || "选择错误";
 
-  await put("wrongItems", {
+  const wrongItem = {
     id: `wrong_${question.id}`,
     noteId: note?.id || question.noteId,
     section: question.relatedNoteSection || "未标注章节",
@@ -710,7 +844,10 @@ async function upsertChoiceWrongItem(note, set, question, answer) {
     reviewCount: existing?.reviewCount || 0,
     lastReviewedAt: existing?.lastReviewedAt || "",
     mastered: false
-  });
+  };
+  await put("wrongItems", wrongItem);
+  await ensureReviewCard({ wrongItem, question });
+  return wrongItem;
 }
 
 async function upsertSubjectiveWrongItem(note, set, question, answer, gradeResult, aiTeaching) {
@@ -720,7 +857,7 @@ async function upsertSubjectiveWrongItem(note, set, question, answer, gradeResul
   if (answer.imageName) userAnswerParts.push(`[图片答案：${answer.imageName}]`);
   if (gradeResult.recognizedAnswer) userAnswerParts.push(`识别结果：${gradeResult.recognizedAnswer}`);
 
-  await put("wrongItems", {
+  const wrongItem = {
     id: `wrong_${question.id}`,
     noteId: note?.id || question.noteId,
     section: question.relatedNoteSection || "未标注章节",
@@ -738,7 +875,10 @@ async function upsertSubjectiveWrongItem(note, set, question, answer, gradeResul
     reviewCount: existing?.reviewCount || 0,
     lastReviewedAt: existing?.lastReviewedAt || "",
     mastered: false
-  });
+  };
+  await put("wrongItems", wrongItem);
+  await ensureReviewCard({ wrongItem, question });
+  return wrongItem;
 }
 
 function optionText(question, label) {

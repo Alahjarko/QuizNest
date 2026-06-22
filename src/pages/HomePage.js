@@ -3,6 +3,7 @@ import { showToast } from "../components/Toast.js";
 import { APP_DESCRIPTION, APP_NAME } from "../config/appMeta.js";
 import { getAll, getSettings, put } from "../services/storage/db.js";
 import { getProfile } from "../services/profile.js";
+import { getDueReviewQueue } from "../services/reviewScheduler.js";
 import { formatDuration, getStudyDashboard } from "../services/studyTracker.js";
 import { createId, nowIso } from "../utils/ids.js";
 import { readTextFile } from "../utils/file.js";
@@ -19,7 +20,12 @@ export async function renderHomePage(container, app) {
   const questions = await getAll("questions");
   const answers = await getAll("answers");
   const wrongItems = await getAll("wrongItems");
-  const [settings, study, profile] = await Promise.all([getSettings(), getStudyDashboard(), getProfile()]);
+  const [settings, study, profile, dueReviewQueue] = await Promise.all([
+    getSettings(),
+    getStudyDashboard(),
+    getProfile(),
+    getDueReviewQueue()
+  ]);
   const openWrongCount = wrongItems.filter((item) => !item.mastered).length;
   const totalStudySets = sets.length;
   const generatedQuestions = questions.length;
@@ -72,7 +78,7 @@ export async function renderHomePage(container, app) {
       <div><span>今日正确率</span><strong>${todayAccuracy(study.today)}</strong></div>
       <div><span>今日学习</span><strong>${formatDuration(study.today.studyMs)}</strong></div>
       <div><span>连续学习</span><strong>${study.streak} 天</strong></div>
-      <div><span>待掌握错题</span><strong>${openWrongCount}</strong></div>
+      <div><span>今日待复习</span><strong>${dueReviewQueue.length}</strong></div>
     </section>
 
     <section class="home-section-heading">
@@ -86,8 +92,8 @@ export async function renderHomePage(container, app) {
         <small>${currentSet ? `${currentSet.submitted} / ${currentSet.total} 已完成` : "先从一份笔记生成题组"}</small>
       </button>
       <div class="home-action-secondary">
-        <button data-review-wrong type="button" ${openWrongCount ? "" : "disabled"}>
-          <span>复习待掌握错题</span><strong>${openWrongCount} 道</strong>
+        <button data-review-wrong type="button" ${dueReviewQueue.length ? "" : "disabled"}>
+          <span>完成今日复习计划</span><strong>${dueReviewQueue.length} 道</strong>
         </button>
         <button data-generate-new type="button" ${notes.length ? "" : "disabled"}>
           <span>从笔记生成题组</span><strong>${notes.length} 份笔记</strong>
@@ -132,9 +138,9 @@ export async function renderHomePage(container, app) {
         <div class="home-section-heading compact-heading"><div><h2>今日建议</h2><p>由本地学习记录生成。</p></div></div>
         <div class="home-insight-list">
           <article class="review-insight">
-            <span>薄弱章节</span>
-            <strong>${weakSection ? escapeHtml(weakSection.section) : "暂无明确薄弱点"}</strong>
-            <small>${weakSection ? `${weakSection.count} 道未掌握错题` : "继续练习后会在这里形成判断"}</small>
+            <span>今日复习计划</span>
+            <strong>${dueReviewQueue.length ? `${dueReviewQueue.length} 道到期错题` : "今天没有到期任务"}</strong>
+            <small>${dueReviewQueue.length ? "按记忆稳定度和历史复习表现安排" : "新的错误会自动进入间隔复习"}</small>
           </article>
           <article>
             <span>建议复习</span>
@@ -226,7 +232,7 @@ export async function renderHomePage(container, app) {
     button.addEventListener("click", () => app.navigate(`/note/${button.dataset.generateNote}?generate=1`));
   });
 
-  container.querySelector("[data-review-wrong]")?.addEventListener("click", () => app.navigate("/wrong?status=open"));
+  container.querySelector("[data-review-wrong]")?.addEventListener("click", () => app.navigate("/wrong?status=due"));
   container.querySelector("[data-generate-new]")?.addEventListener("click", () => openNoteGeneratorPicker(notes, app));
   container.querySelector("[data-open-chat]")?.addEventListener("click", () => app.navigate("/chat"));
 }

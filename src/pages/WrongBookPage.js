@@ -5,6 +5,15 @@ import { showToast } from "../components/Toast.js";
 import { buildGradingMessages, normalizeGradeResult } from "../prompts/grading.js";
 import { buildWrongAnalysisMessages } from "../prompts/wrongAnalysis.js";
 import { callJsonCompletion } from "../services/ai/aiClient.js";
+import { recordGradingAttempt, recordGradingFailure } from "../services/gradingHistory.js";
+import {
+  formatReviewDue,
+  getReviewCardMap,
+  orphanReviewCard,
+  ratingFromPerformance,
+  recordReviewOutcome,
+  setReviewCardSuspended
+} from "../services/reviewScheduler.js";
 import { get, getAll, getByIndex, put, remove } from "../services/storage/db.js";
 import { recordWrongReview } from "../services/studyTracker.js";
 import { startElapsedTimer } from "../utils/elapsedTimer.js";
@@ -17,7 +26,17 @@ const LABELS = ["A", "B", "C", "D"];
 
 export async function renderWrongBookPage(container, app) {
   const notes = (await getAll("notes")).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
-  const allWrongItems = (await getAll("wrongItems")).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  const reviewCardMap = await getReviewCardMap();
+  const allWrongItems = (await getAll("wrongItems"))
+    .map((item) => {
+      const reviewCard = reviewCardMap.get(item.id);
+      return {
+        ...item,
+        reviewCard,
+        reviewDue: Boolean(reviewCard && !reviewCard.suspended && Date.parse(reviewCard.dueAt || 0) <= endOfToday())
+      };
+    })
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   const filters = readFilters(app.route.query);
   const noteMap = new Map(notes.map((note) => [note.id, note]));
   const sections = unique(
@@ -31,6 +50,7 @@ export async function renderWrongBookPage(container, app) {
     all: allWrongItems.length,
     open: allWrongItems.filter((item) => !item.mastered).length,
     mastered: allWrongItems.filter((item) => item.mastered).length,
+    due: allWrongItems.filter((item) => item.reviewDue).length,
     recent: allWrongItems.filter((item) => Date.parse(item.createdAt || 0) >= recentThreshold).length
   };
 
@@ -50,7 +70,7 @@ export async function renderWrongBookPage(container, app) {
 
     <section class="archive-summary mistake-summary" aria-label="错题概览">
       ${renderMistakeMetric(counts.all, "错题总数")}
-      ${renderMistakeMetric(counts.open, "待复习", "review")}
+      ${renderMistakeMetric(counts.due, "今日待复习", "review")}
       ${renderMistakeMetric(counts.mastered, "已掌握")}
       ${renderMistakeMetric(counts.recent, "近 7 天新增")}
     </section>
@@ -65,6 +85,7 @@ export async function renderWrongBookPage(container, app) {
         <div class="archive-filter-tabs" role="group" aria-label="掌握状态">
           <button class="${filters.status === "all" ? "active" : ""}" data-status-filter="all" type="button">全部错题</button>
           <button class="${filters.status === "open" ? "active" : ""}" data-status-filter="open" type="button">待复习</button>
+          <button class="${filters.status === "due" ? "active" : ""}" data-status-filter="due" type="button">今日计划</button>
           <button class="${filters.status === "mastered" ? "active" : ""}" data-status-filter="mastered" type="button">已掌握</button>
         </div>
       </div>
@@ -146,6 +167,7 @@ export async function renderWrongBookPage(container, app) {
         mastered: !item.mastered,
         lastReviewedAt: nowIso()
       });
+      await setReviewCardSuspended(item.id, !item.mastered);
       showToast(item.mastered ? "已改为未掌握" : "已标记掌握", "success");
       app.refresh();
     });
@@ -208,6 +230,7 @@ function matchFilters(item, filters) {
   if (filters.type !== "all" && item.questionType !== filters.type) return false;
   if (filters.status === "open" && item.mastered) return false;
   if (filters.status === "mastered" && !item.mastered) return false;
+  if (filters.status === "due" && !item.reviewDue) return false;
   if (filters.setId !== "all" && item.setId !== filters.setId) return false;
   return true;
 }
@@ -233,7 +256,9 @@ function renderWrongItem(item, note) {
             <p class="mistake-source">${escapeHtml(note?.title || "未知笔记")}</p>
             <h2>${escapeHtml(questionPreview)}</h2>
           </div>
-          <span class="mastery-badge ${item.mastered ? "mastered" : ""}">${item.mastered ? "已掌握" : "待复习"}</span>
+          <span class="mastery-badge ${item.mastered && !item.reviewDue ? "mastered" : ""}">${
+            item.reviewDue ? "今日待复习" : item.mastered ? "已掌握" : "等待安排"
+          }</span>
         </div>
         <div class="mistake-diagnosis">
           <span>错因</span>
@@ -244,11 +269,12 @@ function renderWrongItem(item, note) {
           <span>${typeLabel}</span>
           <span>复习 ${Number(item.reviewCount || 0)} 次</span>
           <span>${item.lastReviewedAt ? `最近复习 ${formatDateTime(item.lastReviewedAt)}` : "尚未复习"}</span>
+          <span>下次复习 ${formatReviewDue(item.reviewCard?.dueAt)}</span>
         </div>
       </div>
       <div class="mistake-card-actions">
         ${
-          item.mastered
+          item.mastered && !item.reviewDue
             ? `<button class="secondary-button" data-show-wrong-details="${item.id}" type="button">查看解析</button>`
             : `<button class="primary-button" data-review-wrong="${item.id}" type="button">继续复习</button>`
         }
@@ -411,6 +437,7 @@ async function confirmDeleteWrongItem(itemId, app) {
     button.disabled = true;
     try {
       await remove("wrongItems", itemId);
+      await orphanReviewCard(itemId);
       showToast("错题已删除", "success");
       modal.close();
       app.refresh();
@@ -485,15 +512,23 @@ function bindChoiceReview(modal, item, question, app) {
 
   submit.addEventListener("click", async () => {
     const isCorrect = selected === question.correctAnswer;
+    const schedule = await recordReviewOutcome({
+      wrongItem: item,
+      question,
+      rating: ratingFromPerformance({ score: isCorrect ? 85 : 0, isCorrect }),
+      score: isCorrect ? 85 : 0,
+      isCorrect
+    });
     await put("wrongItems", {
       ...item,
       reviewCount: Number(item.reviewCount || 0) + 1,
       lastReviewedAt: nowIso(),
+      nextReviewAt: schedule.card.dueAt,
       mastered: isCorrect ? true : item.mastered
     });
     await recordWrongReview(isCorrect);
     status.textContent = isCorrect
-      ? "回答正确，已标记为掌握。"
+      ? `回答正确；下次复习安排在${formatReviewDue(schedule.card.dueAt)}。`
       : `仍需复习。正确答案是 ${question.correctAnswer}。${question.explanation || ""}`;
     showToast(isCorrect ? "复习正确，已标记掌握" : "复习错误，请继续订正", isCorrect ? "success" : "error");
     window.setTimeout(() => {
@@ -569,22 +604,49 @@ function bindSubjectiveReview(modal, item, note, question, app) {
           temperature: 0
         })
       );
+      const gradingAttempt = await recordGradingAttempt({
+        question,
+        answer: { id: `review_answer_${item.id}`, questionId: question.id, noteId: item.noteId, setId: item.setId, textAnswer, imageDataUrl, imageName },
+        result: gradeResult,
+        context: "review",
+        wrongItemId: item.id
+      });
       const mastered = gradeResult.isCorrect && gradeResult.score >= 70;
+      const schedule = await recordReviewOutcome({
+        wrongItem: item,
+        question,
+        rating: ratingFromPerformance({ score: gradeResult.score, isCorrect: mastered }),
+        score: gradeResult.score,
+        isCorrect: mastered,
+        gradingAttemptId: gradingAttempt.id
+      });
       await put("wrongItems", {
         ...item,
         reviewCount: Number(item.reviewCount || 0) + 1,
         lastReviewedAt: nowIso(),
+        nextReviewAt: schedule.card.dueAt,
         mastered: mastered ? true : item.mastered
       });
       await recordWrongReview(mastered);
       await app.refresh();
       elapsedTimer.stop();
-      status.innerHTML = renderSubjectiveReviewResult(gradeResult, mastered);
+      status.innerHTML = renderSubjectiveReviewResult(gradeResult, mastered, schedule.card.dueAt);
       await typesetMath(status);
       button.textContent = "本次复习已记录";
       showToast(mastered ? "复习通过" : "复习未通过", mastered ? "success" : "error");
       status.querySelector("[data-close-review-result]")?.addEventListener("click", () => modal.close());
     } catch (error) {
+      try {
+        await recordGradingFailure({
+          question,
+          answer: { id: `review_answer_${item.id}`, questionId: question.id, noteId: item.noteId, setId: item.setId, textAnswer, imageDataUrl, imageName },
+          context: "review",
+          wrongItemId: item.id,
+          errorMessage: error.message
+        });
+      } catch (historyError) {
+        console.warn("保存复习判题失败历史时出错", historyError);
+      }
       elapsedTimer.stop();
       status.textContent = `判题失败：${error.message}`;
       button.disabled = false;
@@ -593,13 +655,15 @@ function bindSubjectiveReview(modal, item, note, question, app) {
   });
 }
 
-function renderSubjectiveReviewResult(gradeResult, mastered) {
+function renderSubjectiveReviewResult(gradeResult, mastered, nextDueAt) {
   return `
     <div class="review-result ${mastered ? "correct" : "wrong"}">
       <strong>${mastered ? "复习通过，已标记掌握。" : "还需要继续复习。"}</strong>
       <p><strong>得分：</strong>${Number(gradeResult.score || 0)} / 100</p>
       ${gradeResult.recognizedAnswer ? `<p><strong>识别出的答案：</strong>${escapeHtml(gradeResult.recognizedAnswer)}</p>` : ""}
       <p><strong>判定理由：</strong>${escapeHtml(gradeResult.reason || "暂无理由")}</p>
+      <p><strong>最早出错步骤：</strong>${escapeHtml(gradeResult.earliestErrorStep || (mastered ? "无" : "模型未明确指出"))}</p>
+      <p><strong>下次复习：</strong>${formatReviewDue(nextDueAt)}</p>
       ${renderInlineList("做得好的地方", gradeResult.strengths)}
       ${renderInlineList("需要订正", gradeResult.weaknesses)}
       <div class="form-actions">
@@ -616,4 +680,10 @@ function renderInlineList(title, values) {
 
 function unique(values) {
   return [...new Set(values.filter(Boolean))];
+}
+
+function endOfToday() {
+  const date = new Date();
+  date.setHours(23, 59, 59, 999);
+  return date.getTime();
 }

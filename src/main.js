@@ -157,15 +157,3 @@ startStudyTimer({ isActive: isStudyRouteActive });
 // 主题偏好为“跟随系统”时，响应操作系统深浅色变化即时切换。
 watchSystemTheme();
 renderApp();
-
-setTimeout(async () => {
-  const { getAll, put } = await import("./services/storage/db.js");
-  const notes = await getAll("notes");
-  if (notes.length === 0) {
-    const { createId, nowIso } = await import("./utils/ids.js");
-    const noteId = createId("note");
-    await put("notes", { id: noteId, title: "测试笔记：认知边界", fileName: "cognitive.md", content: "# 认知边界测试\n这是一份系统自动生成的测试笔记，用于前端排版和交互调试。", sections: [{id:"s1", title:"基本概念"}], createdAt: nowIso(), updatedAt: nowIso() });
-    await put("questionSets", { id: createId("set"), noteId, title: "测试题组：基础概念测验", total: 10, submitted: 3, status: "in_progress", createdAt: nowIso(), updatedAt: nowIso() });
-    window.location.reload();
-  }
-}, 500);

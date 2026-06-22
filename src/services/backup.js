@@ -1,7 +1,7 @@
 import { getAll, putMany } from "./storage/db.js";
 
 const BACKUP_KIND = "quiznest.learning-backup";
-const BACKUP_VERSION = 1;
+const BACKUP_VERSION = 2;
 
 export const BACKUP_STORES = [
   "profile",
@@ -16,7 +16,12 @@ export const BACKUP_STORES = [
   "modelUsage",
   "learningMemories",
   "memorySettings",
-  "learningProgress"
+  "learningProgress",
+  "gradingAttempts",
+  "knowledgePoints",
+  "knowledgeLinks",
+  "reviewCards",
+  "reviewLogs"
 ];
 
 export async function buildLearningBackup() {
