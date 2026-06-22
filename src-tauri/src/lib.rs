@@ -495,6 +495,48 @@ async fn greet(name: String) -> String {
     format!("Hello, {}! QuizNest 已就绪。", name)
 }
 
+#[tauri::command]
+async fn webdav_request(
+    method: String,
+    url: String,
+    auth_header: String,
+    body: Option<String>,
+) -> Result<String, String> {
+    let client = reqwest::Client::new();
+    let mut req = match method.as_str() {
+        "GET" => client.get(&url),
+        "PUT" => client.put(&url),
+        "PROPFIND" => client.request(reqwest::Method::from_bytes(b"PROPFIND").unwrap(), &url),
+        _ => return Err(format!("Unsupported method {}", method)),
+    };
+
+    req = req.header("Authorization", auth_header);
+    if method == "PROPFIND" {
+        req = req.header("Depth", "0");
+    }
+    if method == "PUT" {
+        req = req.header("Content-Type", "application/json");
+    }
+    if let Some(b) = body {
+        req = req.body(b);
+    }
+
+    let response = req.send().await.map_err(|e| format!("Network Error: {}", e))?;
+    let status = response.status();
+    
+    if !status.is_success() {
+        if status.as_u16() == 401 {
+            return Err("401".to_string());
+        }
+        if status.as_u16() == 404 {
+            return Err("404".to_string());
+        }
+        return Err(format!("HTTP {}", status));
+    }
+
+    response.text().await.map_err(|e| format!("Read Error: {}", e))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -502,7 +544,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             chat_completions,
             chat_completions_stream,
-            greet
+            greet,
+            webdav_request
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

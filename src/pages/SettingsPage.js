@@ -167,30 +167,32 @@ export async function renderSettingsPage(container, app) {
           <p>配置 WebDAV (如坚果云、Nextcloud) 以实现跨设备同步。云端同步会完整包含所有学习数据、设置以及首页封面。</p>
         </div>
       </div>
-      <div class="form-row">
-        <label>
-          <span>WebDAV 服务器地址</span>
-          <input name="webdavUrl" type="url" placeholder="https://dav.jianguoyun.com/dav/" value="${escapeHtml(settings.webdavUrl || "")}" form="settings-model" />
-        </label>
-      </div>
-      <div class="form-row two-cols">
-        <label>
-          <span>账号</span>
-          <input name="webdavUsername" type="text" placeholder="user@example.com" value="${escapeHtml(settings.webdavUsername || "")}" form="settings-model" />
-        </label>
-        <label>
-          <span>应用密码</span>
-          <input name="webdavPassword" type="password" placeholder="推荐使用应用独立密码" value="${escapeHtml(settings.webdavPassword || "")}" form="settings-model" />
-        </label>
-      </div>
-      <div class="form-row">
-        <label>
-          <span>自动同步频次</span>
-          <select name="webdavSyncFrequency" form="settings-model">
-            <option value="manual" ${settings.webdavSyncFrequency === "manual" ? "selected" : ""}>仅手动同步</option>
-            <option value="startup" ${settings.webdavSyncFrequency === "startup" ? "selected" : ""}>每次启动时自动静默上传</option>
-          </select>
-        </label>
+      <div class="apple-form">
+        <div class="form-grid">
+          <label>
+            <span>WebDAV 服务器地址</span>
+            <input name="webdavUrl" type="url" placeholder="https://dav.jianguoyun.com/dav/" value="${escapeHtml(settings.webdavUrl || "")}" form="settings-model" />
+          </label>
+        </div>
+        <div class="form-grid">
+          <label>
+            <span>账号</span>
+            <input name="webdavUsername" type="text" placeholder="user@example.com" value="${escapeHtml(settings.webdavUsername || "")}" form="settings-model" />
+          </label>
+          <label>
+            <span>应用密码</span>
+            <input name="webdavPassword" type="password" placeholder="推荐使用应用独立密码" value="${escapeHtml(settings.webdavPassword || "")}" form="settings-model" />
+          </label>
+        </div>
+        <div class="form-grid">
+          <label>
+            <span>自动同步频次</span>
+            <select name="webdavSyncFrequency" form="settings-model">
+              <option value="manual" ${settings.webdavSyncFrequency === "manual" ? "selected" : ""}>仅手动同步</option>
+              <option value="startup" ${settings.webdavSyncFrequency === "startup" ? "selected" : ""}>每次启动时自动静默上传</option>
+            </select>
+          </label>
+        </div>
       </div>
       <div class="backup-actions">
         <button class="secondary-button" type="button" data-webdav-test>测试连接</button>
@@ -275,6 +277,23 @@ function bindBackupActions(container, app) {
 }
 
 function bindWebdavActions(container, app, settings) {
+  const form = container.querySelector("[data-settings-form]");
+  
+  let saveTimer;
+  const webdavInputs = container.querySelectorAll("input[name^='webdav'], select[name^='webdav']");
+  webdavInputs.forEach(input => {
+    input.addEventListener("input", () => {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(async () => {
+        await saveSettings(readSettingsForm(form));
+      }, 500);
+    });
+    input.addEventListener("change", async () => {
+      clearTimeout(saveTimer);
+      await saveSettings(readSettingsForm(form));
+    });
+  });
+
   container.querySelector("[data-webdav-test]")?.addEventListener("click", async (e) => {
     const button = e.target;
     button.disabled = true;
