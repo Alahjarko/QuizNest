@@ -243,7 +243,10 @@ function bindSetFilters(container) {
     const query = String(search?.value || "").trim().toLocaleLowerCase();
     let visibleCount = 0;
     cards.forEach((card) => {
-      const matchesFilter = currentFilter === "all" || card.dataset.status === currentFilter;
+      const matchesFilter =
+        currentFilter === "all" ||
+        card.dataset.status === currentFilter ||
+        (currentFilter === "completed" && card.dataset.status === "review");
       const matchesSearch = !query || card.dataset.search.includes(query);
       const visible = matchesFilter && matchesSearch;
       card.hidden = !visible;
