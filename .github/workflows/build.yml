@@ -161,21 +161,20 @@ jobs:
         run: cargo tauri android build --target aarch64 --apk --split-per-abi --ci
 
       - name: Sign APK
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           APK_DIR="src-tauri/gen/android/app/build/outputs/apk"
           BUILT_APK=$(find "$APK_DIR" -name '*arm64*.apk' | head -n1)
           if [ -z "$BUILT_APK" ]; then echo "ERROR: arm64 APK not found"; exit 1; fi
           echo "Found APK: $BUILT_APK"
 
-          # Ensure debug keystore
-          KEYSTORE="$HOME/.android/debug.keystore"
-          mkdir -p "$HOME/.android"
-          if [ ! -f "$KEYSTORE" ]; then
-            keytool -genkeypair -v \
-              -keystore "$KEYSTORE" -storepass android -alias androiddebugkey -keypass android \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
-          fi
+          # Decode the production keystore from GitHub Secrets
+          KEYSTORE="/tmp/upload-keystore.jks"
+          echo "$KEYSTORE_B64" | base64 --decode > "$KEYSTORE"
 
           BUILD_TOOLS=$(ls -d "$ANDROID_HOME/build-tools/"* | sort -V | tail -n1)
           ALIGNED_APK="/tmp/aligned.apk"
@@ -188,8 +187,8 @@ jobs:
 
           # sign
           "$BUILD_TOOLS/apksigner" sign \
-            --ks "$KEYSTORE" --ks-key-alias androiddebugkey \
-            --ks-pass pass:android --key-pass pass:android \
+            --ks "$KEYSTORE" --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass "pass:$KEYSTORE_PASS" --key-pass "pass:$KEY_PASS" \
             --out "$SIGNED_APK" "$ALIGNED_APK"
 
           # verify
