@@ -13,6 +13,8 @@ import { openDb } from "./services/storage/db.js";
 import { watchSystemTheme } from "./services/theme.js";
 import { startStudyTimer } from "./services/studyTracker.js";
 import { typesetMath } from "./utils/math.js";
+import { getSettings } from "./services/storage/db.js";
+import { syncToWebdav } from "./services/webdav.js";
 
 const appRoot = document.getElementById("app");
 const chatRoot = document.getElementById("chat-root");
@@ -157,3 +159,16 @@ startStudyTimer({ isActive: isStudyRouteActive });
 // 主题偏好为“跟随系统”时，响应操作系统深浅色变化即时切换。
 watchSystemTheme();
 renderApp();
+
+(async () => {
+  try {
+    const settings = await getSettings();
+    if (settings.webdavSyncFrequency === "startup" && settings.webdavUrl) {
+      console.log("启动时自动触发 WebDAV 备份上传...");
+      await syncToWebdav();
+      console.log("启动 WebDAV 备份上传完成");
+    }
+  } catch (err) {
+    console.error("启动 WebDAV 同步失败:", err);
+  }
+})();

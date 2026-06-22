@@ -11,6 +11,7 @@ import {
   getMemoryOverview,
   renderMemorySettingsSection
 } from "../components/MemoryManager.js";
+import { testWebdavConnection, syncToWebdav, syncFromWebdav } from "../services/webdav.js";
 
 export async function renderSettingsPage(container, app) {
   app.setContext({ contextKey: "settings" });
@@ -30,7 +31,8 @@ export async function renderSettingsPage(container, app) {
       <button type="button" data-settings-jump="settings-model"><span>01</span>模型配置</button>
       <button type="button" data-settings-jump="settings-appearance"><span>02</span>外观</button>
       <button type="button" data-settings-jump="settings-memory"><span>03</span>长期记忆</button>
-      <button type="button" data-settings-jump="settings-data"><span>04</span>数据管理</button>
+      <button type="button" data-settings-jump="settings-webdav"><span>04</span>云端同步</button>
+      <button type="button" data-settings-jump="settings-data"><span>05</span>数据管理</button>
     </nav>
 
     <form class="settings-form apple-form settings-model-form" data-settings-form id="settings-model">
@@ -157,6 +159,47 @@ export async function renderSettingsPage(container, app) {
       ${renderMemorySettingsSection(memoryOverview)}
     </div>
 
+    <section class="settings-section data-section" id="settings-webdav">
+      <div class="section-heading inline">
+        <div>
+          <p class="eyebrow">云端同步</p>
+          <h2>WebDAV 备份同步</h2>
+          <p>配置 WebDAV (如坚果云、Nextcloud) 以实现跨设备同步。云端同步会完整包含所有学习数据、设置以及首页封面。</p>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>
+          <span>WebDAV 服务器地址</span>
+          <input name="webdavUrl" type="url" placeholder="https://dav.jianguoyun.com/dav/" value="${escapeHtml(settings.webdavUrl || "")}" form="settings-model" />
+        </label>
+      </div>
+      <div class="form-row two-cols">
+        <label>
+          <span>账号</span>
+          <input name="webdavUsername" type="text" placeholder="user@example.com" value="${escapeHtml(settings.webdavUsername || "")}" form="settings-model" />
+        </label>
+        <label>
+          <span>应用密码</span>
+          <input name="webdavPassword" type="password" placeholder="推荐使用应用独立密码" value="${escapeHtml(settings.webdavPassword || "")}" form="settings-model" />
+        </label>
+      </div>
+      <div class="form-row">
+        <label>
+          <span>自动同步频次</span>
+          <select name="webdavSyncFrequency" form="settings-model">
+            <option value="manual" ${settings.webdavSyncFrequency === "manual" ? "selected" : ""}>仅手动同步</option>
+            <option value="startup" ${settings.webdavSyncFrequency === "startup" ? "selected" : ""}>每次启动时自动静默上传</option>
+          </select>
+        </label>
+      </div>
+      <div class="backup-actions">
+        <button class="secondary-button" type="button" data-webdav-test>测试连接</button>
+        <button class="primary-button" type="button" data-webdav-push>强制推送到云端</button>
+        <button class="secondary-button" type="button" data-webdav-pull>从云端拉取覆盖</button>
+      </div>
+      <div class="status-box">最后同步时间：${settings.lastWebdavSyncAt ? new Date(settings.lastWebdavSyncAt).toLocaleString() : "从未同步"}</div>
+    </section>
+
     <section class="settings-section data-section" id="settings-data">
       <div class="section-heading inline">
         <div>
@@ -179,6 +222,7 @@ export async function renderSettingsPage(container, app) {
   const form = container.querySelector("[data-settings-form]");
   bindSettingsInteractions(container, form);
   bindBackupActions(container, app);
+  bindWebdavActions(container, app, settings);
   bindMemorySettingsSection(container);
 
   container.querySelectorAll("[data-settings-jump]").forEach((button) => {
@@ -226,6 +270,58 @@ function bindBackupActions(container, app) {
       app.refresh();
     } catch (error) {
       showToast(`导入失败：${error.message}`, "error");
+    }
+  });
+}
+
+function bindWebdavActions(container, app, settings) {
+  container.querySelector("[data-webdav-test]")?.addEventListener("click", async (e) => {
+    const button = e.target;
+    button.disabled = true;
+    button.textContent = "连接中...";
+    try {
+      const form = container.querySelector("[data-settings-form]");
+      const current = readSettingsForm(form);
+      await testWebdavConnection(current);
+      showToast("WebDAV 连接成功！", "success");
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      button.disabled = false;
+      button.textContent = "测试连接";
+    }
+  });
+
+  container.querySelector("[data-webdav-push]")?.addEventListener("click", async (e) => {
+    const button = e.target;
+    button.disabled = true;
+    button.textContent = "推送中...";
+    try {
+      await syncToWebdav();
+      showToast("已成功推送到云端", "success");
+      app.refresh();
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      button.disabled = false;
+      button.textContent = "强制推送到云端";
+    }
+  });
+
+  container.querySelector("[data-webdav-pull]")?.addEventListener("click", async (e) => {
+    if (!confirmAction("确定从云端拉取？同 ID 的本机数据会被覆盖，且会应用云端的设置和首页封面。")) return;
+    const button = e.target;
+    button.disabled = true;
+    button.textContent = "拉取中...";
+    try {
+      const result = await syncFromWebdav();
+      showToast(`拉取完成：更新了 ${result.totalImported} 条记录`, "success");
+      app.refresh();
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      button.disabled = false;
+      button.textContent = "从云端拉取覆盖";
     }
   });
 }
@@ -413,6 +509,10 @@ function readSettingsForm(form) {
     chatModel,
     homeHeroImageDataUrl,
     homeHeroImageName,
+    webdavUrl: String(formData.get("webdavUrl") || "").trim(),
+    webdavUsername: String(formData.get("webdavUsername") || "").trim(),
+    webdavPassword: String(formData.get("webdavPassword") || "").trim(),
+    webdavSyncFrequency: String(formData.get("webdavSyncFrequency") || "manual"),
     gradingSupportsVision: true,
     enableThinking: true,
     timeoutMs: Number(formData.get("timeoutMs") || 180000),

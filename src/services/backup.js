@@ -21,7 +21,8 @@ export const BACKUP_STORES = [
   "knowledgePoints",
   "knowledgeLinks",
   "reviewCards",
-  "reviewLogs"
+  "reviewLogs",
+  "settings"
 ];
 
 export async function buildLearningBackup() {
