@@ -454,7 +454,7 @@ function bindHeroImageSettings(container, form) {
       dataInput.value = image.dataUrl;
       nameInput.value = image.name;
       updatePreview();
-      showToast("首页封面已选择，保存设置后生效", "success");
+      form.requestSubmit();
     } catch (error) {
       showToast(error.message, "error");
     }
@@ -464,7 +464,7 @@ function bindHeroImageSettings(container, form) {
     dataInput.value = "";
     nameInput.value = "";
     updatePreview();
-    showToast("首页封面已移除，保存设置后生效", "success");
+    form.requestSubmit();
   });
 }
 
