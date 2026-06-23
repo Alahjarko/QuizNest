@@ -27,6 +27,15 @@
 
 ### 2026-06-23 / Antigravity / Gemini 3.1 Pro (High)
 
+**完成内容**：在设置页新增了“沉浸式全屏”开关，允许用户在 Android 端和桌面端隐藏系统状态栏，以获得更沉浸的学习体验。
+- 在 `SettingsPage.js` 的外观设置部分添加了 `immersiveMode` 开关。
+- 在 `tauriBridge.js` 中新增了 `setAppFullscreen` 接口，调用 Tauri 的 `getCurrentWindow().setFullscreen()`。
+- 在 `main.js` 启动逻辑中接入沉浸模式开关状态。
+**涉及文件**：`src/pages/SettingsPage.js`, `src/services/storage/db.js`, `src/main.js`, `src/services/tauriBridge.js`
+**验证方式**：已检查相关组件语法，开关能够成功绑定并在应用启动时应用配置。
+
+### 2026-06-23 / Antigravity / Gemini 3.1 Pro (High)
+
 **完成内容**：重构了“解惑”界面的上下文选择交互。
 - 彻底删除了顶部原本生硬的“选择上下文”独立框区（`.solver-context-header`）。
 - 将关联功能移至底部聊天输入框区域，重命名为“选择内容”并紧贴“学习新知识”按钮旁。
