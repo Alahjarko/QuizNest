@@ -32,11 +32,22 @@ export async function buildLearningBackup(includeDeleted = false) {
     BACKUP_STORES.map(async (storeName) => {
       stores[storeName] = await getAll(storeName, includeDeleted);
       if (storeName === "settings") {
-        stores[storeName] = stores[storeName].map(s => ({
-          ...s,
-          homeHeroImageDataUrl: "",
-          homeHeroImageName: ""
-        }));
+        stores[storeName] = stores[storeName].map(s => {
+          const sCopy = { ...s };
+          // Strip sensitive credentials from sync payload
+          sCopy.apiKey = "";
+          sCopy.commonApiKey = "";
+          if (sCopy.questionConfig) sCopy.questionConfig = { ...sCopy.questionConfig, apiKey: "" };
+          if (sCopy.noteConfig) sCopy.noteConfig = { ...sCopy.noteConfig, apiKey: "" };
+          if (sCopy.gradingConfig) sCopy.gradingConfig = { ...sCopy.gradingConfig, apiKey: "" };
+          if (sCopy.chatConfig) sCopy.chatConfig = { ...sCopy.chatConfig, apiKey: "" };
+          
+          sCopy.webdavPassword = "";
+          
+          sCopy.homeHeroImageDataUrl = "";
+          sCopy.homeHeroImageName = "";
+          return sCopy;
+        });
       }
     })
   );
@@ -87,6 +98,17 @@ export function mergeSyncData(localStores, remoteStores) {
           if (winner === remoteItem) {
             winner.homeHeroImageDataUrl = localItem.homeHeroImageDataUrl || "";
             winner.homeHeroImageName = localItem.homeHeroImageName || "";
+            
+            // Protect local API keys so they are not wiped by remote
+            winner.apiKey = localItem.apiKey || "";
+            winner.commonApiKey = localItem.commonApiKey || "";
+            if (winner.questionConfig && localItem.questionConfig) winner.questionConfig.apiKey = localItem.questionConfig.apiKey || "";
+            if (winner.noteConfig && localItem.noteConfig) winner.noteConfig.apiKey = localItem.noteConfig.apiKey || "";
+            if (winner.gradingConfig && localItem.gradingConfig) winner.gradingConfig.apiKey = localItem.gradingConfig.apiKey || "";
+            if (winner.chatConfig && localItem.chatConfig) winner.chatConfig.apiKey = localItem.chatConfig.apiKey || "";
+
+            // Protect WebDAV password
+            winner.webdavPassword = localItem.webdavPassword || "";
           }
         }
       }
