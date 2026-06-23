@@ -1,5 +1,6 @@
 import { showToast } from "../components/Toast.js";
-import { getAll } from "../services/storage/db.js";
+import { openAvatarCropper } from "../components/AvatarCropper.js";
+import { getAll, remove } from "../services/storage/db.js";
 import { getModelUsageRecords } from "../services/modelUsageTracker.js";
 import { getKnowledgeMasterySnapshot } from "../services/knowledgeGraph.js";
 import { getProfile, profileInitials, saveProfile } from "../services/profile.js";
@@ -41,6 +42,13 @@ export async function renderStatsPage(container, app) {
     getKnowledgeMasterySnapshot()
   ]);
 
+  const noteMap = new Map(notes.map((note) => [note.id, note]));
+  const orphanedChatMessages = chatMessages.filter((msg) => msg.noteId && !noteMap.has(msg.noteId));
+  if (orphanedChatMessages.length > 0) {
+    await Promise.all(orphanedChatMessages.map((msg) => remove("chatMessages", msg.id)));
+  }
+  const validChatMessages = chatMessages.filter((msg) => !msg.noteId || noteMap.has(msg.noteId));
+
   const todayDate = formatDate(new Date());
   const studyMap = new Map(studyDays.map((day) => [day.date, day]));
   const usageByDate = groupUsageByDate(usageRecords);
@@ -64,7 +72,7 @@ export async function renderStatsPage(container, app) {
   const weakSections = buildWeakSectionRows(openWrongItems);
   const typeAccuracyRows = buildQuestionTypeAccuracy(questions, answers);
   const activeNotes = buildActiveNoteRows(notes, sets, answers);
-  const chatTopics = buildChatTopicRows(notes, chatMessages);
+  const chatTopics = buildChatTopicRows(notes, validChatMessages);
   const knowledgeRows = knowledgeSnapshot.filter(
     (item) => item.evidenceCount > 0 || item.wrongCount > 0 || item.chatCount > 0 || item.memoryCount > 0
   );
@@ -345,8 +353,10 @@ function bindProfileEvents(container, profile, app) {
   const handleAvatarFile = async (file) => {
     if (!file) return;
     try {
-      const image = await readImageFile(file);
-      await saveProfile({ ...profile, avatarDataUrl: image.dataUrl });
+      const croppedDataUrl = await openAvatarCropper(file);
+      if (!croppedDataUrl) return; // User cancelled
+      
+      await saveProfile({ ...profile, avatarDataUrl: croppedDataUrl });
       showToast("头像已更新", "success");
       app.refresh();
     } catch (error) {

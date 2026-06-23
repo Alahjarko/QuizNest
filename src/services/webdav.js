@@ -1,5 +1,5 @@
-import { buildLearningBackup, importLearningBackup } from "./backup.js";
-import { getSettings, saveSettings } from "./storage/db.js";
+import { buildLearningBackup, mergeSyncData, parseLearningBackup, BACKUP_STORES } from "./backup.js";
+import { getSettings, saveSettings, putMany } from "./storage/db.js";
 
 function getWebdavAuth(settings) {
   const credentials = `${settings.webdavUsername}:${settings.webdavPassword}`;
@@ -69,47 +69,61 @@ export async function testWebdavConnection(settings) {
   }
 }
 
-export async function syncToWebdav() {
+export async function performBidirectionalSync() {
   const settings = await getSettings();
   if (!settings.webdavUrl || !settings.webdavUsername || !settings.webdavPassword) {
     throw new Error("请先配置完整的 WebDAV 信息");
   }
   
-  const backup = await buildLearningBackup();
   const baseUrl = getWebdavBaseUrl(settings.webdavUrl);
   const fileUrl = baseUrl + "/quiznest-backup.json";
   
+  let remoteBackup = null;
   try {
-    // 自动尝试创建文件夹（不管它存不存在，如果已存在会忽略报错）
+    const rawData = await doWebdavRequest("GET", fileUrl, getWebdavAuth(settings));
+    remoteBackup = parseLearningBackup(rawData);
+  } catch (err) {
+    const msg = err.message || err.toString();
+    if (!msg.includes("404")) {
+      throw new Error(`下载云端数据失败: ${msg}`);
+    }
+  }
+
+  const localBackup = await buildLearningBackup(true); // includeDeleted = true
+
+  let finalStores;
+  if (!remoteBackup) {
+    // remote is empty (404), local wins completely
+    finalStores = localBackup.stores;
+  } else {
+    // merge
+    finalStores = mergeSyncData(localBackup.stores, remoteBackup.stores);
+  }
+
+  // Save merged result back to local DB
+  for (const storeName of BACKUP_STORES) {
+    const validRows = finalStores[storeName].filter(row => row && typeof row === "object" && row.id);
+    if (validRows.length > 0) {
+      await putMany(storeName, validRows);
+    }
+  }
+
+  // Upload merged result to WebDAV
+  const uploadPayload = {
+    ...localBackup,
+    stores: finalStores
+  };
+
+  try {
     try {
       await doWebdavRequest("MKCOL", baseUrl + "/", getWebdavAuth(settings));
     } catch (e) { /* ignore existing */ }
     
-    await doWebdavRequest("PUT", fileUrl, getWebdavAuth(settings), backup);
-    await saveSettings({ ...settings, lastWebdavSyncAt: new Date().toISOString() });
+    await doWebdavRequest("PUT", fileUrl, getWebdavAuth(settings), JSON.stringify(uploadPayload));
+    const now = new Date().toISOString();
+    await saveSettings({ ...settings, lastWebdavSyncAt: now });
+    return now;
   } catch (err) {
-    const msg = err.message || err.toString();
-    throw new Error(`上传备份失败: ${msg}`);
-  }
-}
-
-export async function syncFromWebdav() {
-  const settings = await getSettings();
-  if (!settings.webdavUrl || !settings.webdavUsername || !settings.webdavPassword) {
-    throw new Error("请先配置完整的 WebDAV 信息");
-  }
-  
-  const baseUrl = getWebdavBaseUrl(settings.webdavUrl);
-  const fileUrl = baseUrl + "/quiznest-backup.json";
-  
-  try {
-    const data = await doWebdavRequest("GET", fileUrl, getWebdavAuth(settings));
-    const result = await importLearningBackup(data);
-    await saveSettings({ ...settings, lastWebdavSyncAt: new Date().toISOString() });
-    return result;
-  } catch (err) {
-    const msg = err.message || err.toString();
-    if (msg.includes("404")) throw new Error("云端未找到备份文件，请先推送一次。");
-    throw new Error(`下载备份失败: ${msg}`);
+    throw new Error(`上传合并后数据失败: ${err.message}`);
   }
 }

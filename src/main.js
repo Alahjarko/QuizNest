@@ -14,7 +14,7 @@ import { watchSystemTheme } from "./services/theme.js";
 import { startStudyTimer } from "./services/studyTracker.js";
 import { typesetMath } from "./utils/math.js";
 import { getSettings } from "./services/storage/db.js";
-import { syncToWebdav } from "./services/webdav.js";
+import { performBidirectionalSync } from "./services/webdav.js";
 
 
 const appRoot = document.getElementById("app");
@@ -79,6 +79,50 @@ function pageTitle(route) {
       settings: "设置"
     }[first] || "首页"
   );
+}
+
+let autoSyncTimer = null;
+let currentAutoSyncFrequency = null;
+
+async function setupAutoSync() {
+  try {
+    const settings = await getSettings();
+    const freq = settings.webdavSyncFrequency;
+    
+    if (currentAutoSyncFrequency === freq) return;
+    currentAutoSyncFrequency = freq;
+    
+    if (autoSyncTimer) {
+      clearInterval(autoSyncTimer);
+      autoSyncTimer = null;
+    }
+    
+    let intervalMs = 0;
+    if (freq === "10m") intervalMs = 10 * 60 * 1000;
+    else if (freq === "30m") intervalMs = 30 * 60 * 1000;
+    else if (freq === "1h") intervalMs = 60 * 60 * 1000;
+    
+    if (intervalMs > 0) {
+      console.log(`[AutoSync] Configured interval: ${freq}`);
+      autoSyncTimer = setInterval(async () => {
+        try {
+          const currentSettings = await getSettings();
+          if (!currentSettings.webdavUrl || !currentSettings.webdavUsername || !currentSettings.webdavPassword) return;
+          
+          await performBidirectionalSync();
+          console.log(`[AutoSync] WebDAV sync successful at ${new Date().toISOString()}`);
+          
+          if (!isStudyRouteActive()) {
+            renderApp();
+          }
+        } catch (err) {
+          console.error(`[AutoSync] WebDAV sync failed: ${err.message}`);
+        }
+      }, intervalMs);
+    }
+  } catch (e) {
+    console.error("[AutoSync] Setup failed", e);
+  }
 }
 
 async function renderApp() {
@@ -147,6 +191,7 @@ async function renderApp() {
     appRoot.innerHTML = `<main class="page standalone-error"><div class="error-state"><h1>页面加载失败</h1><p>${error.message}</p></div></main>`;
   } finally {
     refreshChat();
+    setupAutoSync();
   }
 }
 
@@ -164,11 +209,10 @@ renderApp();
 (async () => {
   try {
     const settings = await getSettings();
-
-    if (settings.webdavSyncFrequency === "startup" && settings.webdavUrl) {
-      console.log("启动时自动触发 WebDAV 备份上传...");
-      await syncToWebdav();
-      console.log("启动 WebDAV 备份上传完成");
+    if (settings.webdavSyncFrequency !== "manual" && settings.webdavUrl) {
+      console.log("启动时触发 WebDAV 自动双向同步...");
+      await performBidirectionalSync();
+      console.log("启动 WebDAV 同步完成");
     }
   } catch (err) {
     console.error("启动 WebDAV 同步失败:", err);

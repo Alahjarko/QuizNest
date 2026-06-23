@@ -144,9 +144,11 @@ function requestToPromise(request) {
   });
 }
 
-export async function getAll(storeName) {
+export async function getAll(storeName, includeDeleted = false) {
   const db = await openDb();
-  return requestToPromise(db.transaction(storeName, "readonly").objectStore(storeName).getAll());
+  const all = await requestToPromise(db.transaction(storeName, "readonly").objectStore(storeName).getAll());
+  if (includeDeleted) return all;
+  return all.filter(item => !item.deletedAt);
 }
 
 export async function get(storeName, id) {
@@ -176,31 +178,31 @@ export async function putMany(storeName, values) {
 }
 
 export async function remove(storeName, id) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, "readwrite");
-    tx.objectStore(storeName).delete(id);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error || new Error("删除失败"));
-  });
+  const existing = await get(storeName, id);
+  if (!existing) return;
+  existing.deletedAt = new Date().toISOString();
+  existing.updatedAt = existing.deletedAt;
+  return put(storeName, existing);
 }
 
 export async function removeMany(storeName, ids) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, "readwrite");
-    const store = tx.objectStore(storeName);
-    ids.forEach((id) => store.delete(id));
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error || new Error("批量删除失败"));
-  });
+  const now = new Date().toISOString();
+  const existingItems = await Promise.all(ids.map(id => get(storeName, id)));
+  const toUpdate = existingItems
+    .filter(item => !!item)
+    .map(item => ({ ...item, deletedAt: now, updatedAt: now }));
+  if (toUpdate.length > 0) {
+    await putMany(storeName, toUpdate);
+  }
 }
 
-export async function getByIndex(storeName, indexName, value) {
+export async function getByIndex(storeName, indexName, value, includeDeleted = false) {
   const db = await openDb();
   const tx = db.transaction(storeName, "readonly");
   const index = tx.objectStore(storeName).index(indexName);
-  return requestToPromise(index.getAll(value));
+  const all = await requestToPromise(index.getAll(value));
+  if (includeDeleted) return all;
+  return all.filter(item => !item.deletedAt);
 }
 
 export async function saveSettings(settings) {

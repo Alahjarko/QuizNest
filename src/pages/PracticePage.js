@@ -19,6 +19,7 @@ import { escapeHtml } from "../utils/markdown.js";
 
 const LABELS = ["A", "B", "C", "D"];
 const subjectiveGradingTasks = new Map();
+export const pendingPracticeImages = new Map();
 
 export async function renderPracticePage(container, app, setId) {
   const set = await get("questionSets", setId);
@@ -194,7 +195,7 @@ function practiceStatusLabel(stats) {
 
 function renderQuestionNavItem(question, index, currentIndex, answersByQuestion, canOpen) {
   const answer = answersByQuestion.get(question.id);
-  const hasDraft = answer?.selectedOption || answer?.textAnswer || answer?.imageDataUrl;
+  const hasDraft = answer?.selectedOption || answer?.textAnswer || pendingPracticeImages.has(question.id);
   const state = answer?.gradingPending
     ? "pending"
     : answer?.gradingError
@@ -283,20 +284,20 @@ function renderSubjectiveQuestion(question, answer, gradingAttempts = []) {
       </label>
       <div class="image-answer-row">
         <label class="secondary-button file-button ${locked ? "disabled-label" : ""}">
-          上传图片答案
+          上传图片草稿(不保存云端)
           <input data-subjective-image type="file" accept="image/*" ${locked ? "disabled" : ""} hidden />
         </label>
         ${
-          answer?.imageDataUrl
+          pendingPracticeImages.has(question.id)
             ? `<button class="danger-button" data-remove-image type="button" ${locked ? "disabled" : ""}>移除图片</button>`
             : ""
         }
       </div>
       ${
-        answer?.imageDataUrl
+        pendingPracticeImages.has(question.id)
           ? `<figure class="answer-image-preview">
-              <img src="${answer.imageDataUrl}" alt="已上传的答案图片" />
-              <figcaption>${escapeHtml(answer.imageName || "图片答案已保存")}</figcaption>
+              <img src="${pendingPracticeImages.get(question.id).dataUrl}" alt="已上传的答案图片" />
+              <figcaption>临时图片草稿（阅后即焚）</figcaption>
             </figure>`
           : `<div class="status-box">可只提交文字，也可只提交图片，或同时提交文字和图片。</div>`
       }
@@ -308,7 +309,7 @@ function renderSubjectiveQuestion(question, answer, gradingAttempts = []) {
               ? `判题失败：${escapeHtml(answer.gradingError)}。可以修改答案后重新提交。`
               : submitted
             ? "已提交：判题结果已锁定。"
-            : answer?.textAnswer || answer?.imageDataUrl
+            : answer?.textAnswer || pendingPracticeImages.has(question.id)
               ? "草稿已保存在本地。提交后将调用判题模型。"
               : "尚未填写答案。"
         }
@@ -539,16 +540,8 @@ function bindSubjectiveEvents(container, app, note, set, question, answer, quest
     if (!file) return;
     try {
       const image = await readImageFile(file);
-      const latest = (await get("answers", question.id)) || baseSubjectiveAnswer(question);
-      await put("answers", {
-        ...latest,
-        imageDataUrl: image.dataUrl,
-        imageName: image.name,
-        imageType: image.type,
-        updatedAt: nowIso()
-      });
-      await touchQuestionSet(set.id);
-      showToast("图片答案已保存", "success");
+      pendingPracticeImages.set(question.id, image);
+      showToast("图片已暂存", "success");
       app.refresh();
     } catch (error) {
       showToast(error.message, "error");
@@ -556,15 +549,7 @@ function bindSubjectiveEvents(container, app, note, set, question, answer, quest
   });
 
   container.querySelector("[data-remove-image]")?.addEventListener("click", async () => {
-    const latest = (await get("answers", question.id)) || baseSubjectiveAnswer(question);
-    await put("answers", {
-      ...latest,
-      imageDataUrl: "",
-      imageName: "",
-      imageType: "",
-      updatedAt: nowIso()
-    });
-    await touchQuestionSet(set.id);
+    pendingPracticeImages.delete(question.id);
     showToast("图片已移除", "success");
     app.refresh();
   });
@@ -576,7 +561,9 @@ function bindSubjectiveEvents(container, app, note, set, question, answer, quest
       textAnswer: textarea?.value || ""
     };
 
-    if (!latest.textAnswer.trim() && !latest.imageDataUrl) {
+    const pendingImage = pendingPracticeImages.get(question.id);
+
+    if (!latest.textAnswer.trim() && !pendingImage) {
       showToast("请先输入文字答案或上传图片", "error");
       return;
     }
@@ -594,9 +581,14 @@ function bindSubjectiveEvents(container, app, note, set, question, answer, quest
       updatedAt: nowIso()
     };
 
+    delete pendingAnswer.imageDataUrl;
+    delete pendingAnswer.imageName;
+    delete pendingAnswer.imageType;
+
     await put("answers", pendingAnswer);
     await touchQuestionSet(set.id);
-    startSubjectiveGrading({ note, set, question, answer: pendingAnswer, app });
+    startSubjectiveGrading({ note, set, question, answer: pendingAnswer, app, imageObj: pendingImage });
+    pendingPracticeImages.delete(question.id);
 
     if (status) status.textContent = "已提交，正在后台判题。你可以继续完成后面的题目。";
     const nextIndex = Math.min(questions.length - 1, currentIndex + 1);
@@ -677,11 +669,11 @@ function resumePendingSubjectiveGradings(note, set, questions, answersByQuestion
     });
 }
 
-function startSubjectiveGrading({ note, set, question, answer, app }) {
+function startSubjectiveGrading({ note, set, question, answer, app, imageObj }) {
   const key = question.id;
   if (subjectiveGradingTasks.has(key)) return subjectiveGradingTasks.get(key);
 
-  const task = gradeSubjectiveAnswer({ note, set, question, answer, app })
+  const task = gradeSubjectiveAnswer({ note, set, question, answer, app, imageObj })
     .catch((error) => {
       console.warn("后台判题任务失败", error);
     })
@@ -692,7 +684,7 @@ function startSubjectiveGrading({ note, set, question, answer, app }) {
   return task;
 }
 
-async function gradeSubjectiveAnswer({ note, set, question, answer, app }) {
+async function gradeSubjectiveAnswer({ note, set, question, answer, app, imageObj }) {
   try {
     const rawGrade = await callJsonCompletion({
       role: "grading",
@@ -700,7 +692,7 @@ async function gradeSubjectiveAnswer({ note, set, question, answer, app }) {
         note,
         question,
         textAnswer: answer.textAnswer,
-        imageDataUrl: answer.imageDataUrl
+        imageDataUrl: imageObj?.dataUrl || ""
       }),
       temperature: 0
     });

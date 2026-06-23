@@ -25,12 +25,19 @@ export const BACKUP_STORES = [
   "settings"
 ];
 
-export async function buildLearningBackup() {
+export async function buildLearningBackup(includeDeleted = false) {
   const stores = {};
 
   await Promise.all(
     BACKUP_STORES.map(async (storeName) => {
-      stores[storeName] = await getAll(storeName);
+      stores[storeName] = await getAll(storeName, includeDeleted);
+      if (storeName === "settings") {
+        stores[storeName] = stores[storeName].map(s => ({
+          ...s,
+          homeHeroImageDataUrl: "",
+          homeHeroImageName: ""
+        }));
+      }
     })
   );
 
@@ -42,6 +49,52 @@ export async function buildLearningBackup() {
     stores,
     counts: countStores(stores)
   };
+}
+
+export function mergeSyncData(localStores, remoteStores) {
+  const mergedStores = {};
+  
+  for (const storeName of BACKUP_STORES) {
+    const localArr = Array.isArray(localStores[storeName]) ? localStores[storeName] : [];
+    const remoteArr = Array.isArray(remoteStores[storeName]) ? remoteStores[storeName] : [];
+    
+    const localMap = new Map();
+    localArr.forEach(item => { if (item && item.id) localMap.set(item.id, item); });
+    
+    const remoteMap = new Map();
+    remoteArr.forEach(item => { if (item && item.id) remoteMap.set(item.id, item); });
+    
+    const mergedMap = new Map();
+    
+    for (const [id, localItem] of localMap.entries()) {
+      mergedMap.set(id, localItem);
+    }
+    
+    for (const [id, remoteItem] of remoteMap.entries()) {
+      if (!mergedMap.has(id)) {
+        mergedMap.set(id, remoteItem);
+      } else {
+        const localItem = mergedMap.get(id);
+        const localTime = localItem.updatedAt || localItem.createdAt || "";
+        const remoteTime = remoteItem.updatedAt || remoteItem.createdAt || "";
+        
+        if (remoteTime > localTime) {
+          mergedMap.set(id, remoteItem);
+        }
+        
+        if (storeName === "settings") {
+          const winner = mergedMap.get(id);
+          if (winner === remoteItem) {
+            winner.homeHeroImageDataUrl = localItem.homeHeroImageDataUrl || "";
+            winner.homeHeroImageName = localItem.homeHeroImageName || "";
+          }
+        }
+      }
+    }
+    mergedStores[storeName] = Array.from(mergedMap.values());
+  }
+  
+  return mergedStores;
 }
 
 export async function importLearningBackup(rawBackup) {
