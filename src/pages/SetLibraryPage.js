@@ -87,7 +87,7 @@ export async function renderSetLibraryPage(container, app) {
     button.addEventListener("click", async () => {
       const detail = detailBySetId.get(button.dataset.restartSet);
       if (!detail) return;
-      if (!confirmAction("确定重新练习这套题？当前答题进度会清空，题目本身和错题本记录会保留。")) return;
+      if (!(await confirmAction("确定重新练习这套题？当前答题进度会清空，题目本身和错题本记录会保留。"))) return;
       await restartSet(detail.set);
       showToast("已清空这套题的答题进度", "success");
       app.navigate(`/practice/${detail.set.id}`);
@@ -98,7 +98,7 @@ export async function renderSetLibraryPage(container, app) {
     button.addEventListener("click", async () => {
       const detail = detailBySetId.get(button.dataset.deleteSet);
       if (!detail) return;
-      if (!confirmAction("确定删除这套题？题目、答题记录和关联错题记录都会删除。")) return;
+      if (!(await confirmAction("确定删除这套题？题目、答题记录和关联错题记录都会删除。"))) return;
       await deleteSet(detail.set.id);
       showToast("题组已删除", "success");
       app.refresh();

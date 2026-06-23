@@ -80,3 +80,5 @@ release/
 *.log
 coverage/
 reports/
+# Test data
+fortest(not_sync!)/

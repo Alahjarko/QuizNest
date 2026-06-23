@@ -2939,11 +2939,16 @@ textarea {
   inset: 0;
   z-index: 60;
   background: rgba(15, 20, 17, 0.35);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
 }
 
 .modal {
   width: calc(100vw - 32px);
-  margin: 8vh auto 0;
+  margin: 8vh auto 8vh;
   background: var(--surface);
   border-radius: 8px;
   box-shadow: var(--shadow);

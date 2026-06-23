@@ -118,7 +118,7 @@ async function openMemoryManager(settingsContainer) {
 
     content.querySelectorAll("[data-delete-memory]").forEach((button) => {
       button.addEventListener("click", async () => {
-        if (!confirmAction("确定删除这条长期记忆？")) return;
+        if (!(await confirmAction("确定删除这条长期记忆？"))) return;
         await deleteLearningMemory(button.dataset.deleteMemory);
         showToast("记忆已删除", "success");
         await render();

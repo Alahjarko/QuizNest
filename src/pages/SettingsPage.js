@@ -267,7 +267,7 @@ function bindBackupActions(container, app) {
     event.target.value = "";
     if (!file) return;
 
-    if (!confirmAction("确定导入这份学习数据备份？同 ID 的笔记、题目和作答记录会被备份内容覆盖。")) return;
+    if (!(await confirmAction("确定导入这份学习数据备份？同 ID 的笔记、题目和作答记录会被备份内容覆盖。"))) return;
 
     try {
       const text = await readTextFile(file);
@@ -332,7 +332,7 @@ function bindWebdavActions(container, app, settings) {
   });
 
   container.querySelector("[data-webdav-pull]")?.addEventListener("click", async (e) => {
-    if (!confirmAction("确定从云端拉取？同 ID 的本机数据会被覆盖，且会应用云端的设置和首页封面。")) return;
+    if (!(await confirmAction("确定从云端拉取？同 ID 的本机数据会被覆盖，且会应用云端的设置和首页封面。"))) return;
     const button = e.target;
     button.disabled = true;
     button.textContent = "拉取中...";
