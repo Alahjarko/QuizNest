@@ -120,16 +120,6 @@ export async function renderSettingsPage(container, app) {
           <p class="theme-hint">切换会立即生效，无需点击保存。</p>
         </div>
 
-        <div class="section-heading inline">
-          <div>
-            <h2>沉浸式全屏</h2>
-            <p>隐藏系统状态栏，获得更沉浸的学习体验（对 Android 端与桌面端均有效）。</p>
-          </div>
-          <label class="switch-row">
-            <input name="immersiveMode" type="checkbox" ${settings.immersiveMode ? "checked" : ""} />
-            <span>开启沉浸式全屏</span>
-          </label>
-        </div>
 
         <div class="section-heading inline">
           <div>
@@ -249,9 +239,7 @@ export async function renderSettingsPage(container, app) {
     event.preventDefault();
     const newSettings = readSettingsForm(form);
     await saveSettings(newSettings);
-    if (newSettings.immersiveMode !== undefined) {
-      setAppFullscreen(newSettings.immersiveMode);
-    }
+
     showToast("设置已保存", "success");
   });
 }
@@ -523,7 +511,7 @@ function renderSecretInput(name, label, value) {
 function readSettingsForm(form) {
   const formData = new FormData(form);
   const useSeparateConfigs = form.elements.useSeparateConfigs.checked;
-  const immersiveMode = form.elements.immersiveMode.checked;
+
   const commonBaseUrl = String(formData.get("commonBaseUrl") || "").trim();
   const commonApiKey = String(formData.get("commonApiKey") || "").trim();
   const questionModel = String(formData.get("questionModel") || "").trim();
@@ -545,7 +533,7 @@ function readSettingsForm(form) {
     chatModel,
     homeHeroImageDataUrl,
     homeHeroImageName,
-    immersiveMode,
+
     webdavUrl: String(formData.get("webdavUrl") || "").trim(),
     webdavUsername: String(formData.get("webdavUsername") || "").trim(),
     webdavPassword: String(formData.get("webdavPassword") || "").trim(),
