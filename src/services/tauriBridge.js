@@ -21,6 +21,19 @@ function tauriListen(event, handler) {
 }
 
 /**
+ * 切换全屏/沉浸式模式
+ */
+export async function setAppFullscreen(isFullscreen) {
+    if (isTauri && window.__TAURI__?.window) {
+        try {
+            await window.__TAURI__.window.getCurrentWindow().setFullscreen(isFullscreen);
+        } catch (e) {
+            console.warn("Failed to set fullscreen:", e);
+        }
+    }
+}
+
+/**
  * 非流式调用 chat completions
  */
 export async function chatCompletions({ baseUrl, apiKey, model, messages, temperature, timeoutMs, enableThinking, responseFormat }) {

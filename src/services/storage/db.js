@@ -257,6 +257,7 @@ export async function getSettings() {
       modelName: "",
       supportsVision: true,
       enableThinking: true
-    }
+    },
+    immersiveMode: false
   };
 }
