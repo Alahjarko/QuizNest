@@ -5869,6 +5869,12 @@ textarea {
   padding: 0 var(--space-3) var(--space-3) var(--space-3);
 }
 
+@media (min-width: 1367px) {
+  .chat-workspace .chat-input-context {
+    display: none;
+  }
+}
+
 .context-tags {
   min-width: 0;
 }
