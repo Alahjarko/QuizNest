@@ -50,16 +50,6 @@ async function renderChatSurface(root, app, mode) {
           ? `<div class="chat-header"><div><strong>QuizNest 解惑</strong><span>结合当前学习上下文回答。</span></div><button class="icon-button" data-chat-close type="button" aria-label="关闭">×</button></div>`
           : ""
       }
-      <div class="solver-context-header">
-        <div class="solver-context-main">
-          <span class="solver-context-label">当前上下文</span>
-          <div class="context-tags">${renderContextTags(context)}</div>
-        </div>
-        <div class="solver-context-actions">
-          <button class="secondary-button" data-pick-context type="button" ${isSending ? "disabled" : ""}>${chatIcon("book-open")}选择上下文</button>
-          <button class="secondary-button" data-clear-context type="button" ${manualContext && !isSending ? "" : "disabled"}>${chatIcon("eraser")}清空</button>
-        </div>
-      </div>
       ${renderLearningControls(context)}
       <div class="solver-body">
         <div class="solver-conversation">
@@ -74,13 +64,21 @@ async function renderChatSurface(root, app, mode) {
         ${mode === "workspace" ? renderContextInspector(context, messages) : ""}
       </div>
       <form class="chat-input" data-chat-form>
-        <textarea name="message" rows="3" placeholder="写下问题、推导过程或你没有理解的地方..." ${isSending ? "disabled" : ""}>${escapeHtml(draftMessage)}</textarea>
+        <div class="chat-input-context">
+          ${renderContextTags(context)}
+        </div>
+        <textarea name="message" rows="1" placeholder="写下问题、推导过程或你没有理解的地方..." ${isSending ? "disabled" : ""}>${escapeHtml(draftMessage)}</textarea>
         <div class="chat-input-toolbar">
           <div class="chat-input-tools">
+            <button class="chat-tool-button" data-pick-context type="button" ${isSending ? "disabled" : ""} title="选择关联的学习材料">
+              ${chatIcon("book-open")}
+              <span>选择内容</span>
+            </button>
             <button class="chat-tool-button" data-start-learning type="button" title="选择笔记并按章节学习新知识" ${isSending ? "disabled" : ""}>
               ${chatIcon("lightbulb")}
               <span>学习新知识</span>
             </button>
+            ${manualContext ? `<button class="chat-tool-button danger" data-clear-context type="button" ${isSending ? "disabled" : ""} title="清空当前选择的内容"><span>清空</span></button>` : ""}
           </div>
           <button class="chat-send-button" type="submit" aria-label="${isSending ? "回答中" : "发送"}" title="${isSending ? "回答中" : "发送"}" ${isSending ? "disabled" : ""}>
             ${chatIcon("arrow-up")}
@@ -92,13 +90,6 @@ async function renderChatSurface(root, app, mode) {
   root.innerHTML =
     mode === "workspace"
       ? `
-        <section class="archive-page-header solver-page-header">
-          <div>
-            <p class="page-kicker">Problem Solver</p>
-            <h1>解惑</h1>
-            <p>基于笔记、题组和错题上下文，拆解问题并逐步验证理解。</p>
-          </div>
-        </section>
         <section class="chat-workspace" aria-label="解惑工作台">
           ${chatInner}
         </section>`

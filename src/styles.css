@@ -2983,8 +2983,8 @@ textarea {
 }
 
 .chat-workspace {
-  display: grid;
-  grid-template-rows: auto auto minmax(140px, 1fr) auto;
+  display: flex;
+  flex-direction: column;
   height: clamp(560px, calc(100vh - 250px), 860px);
   min-height: min(620px, calc(100vh - 300px));
   overflow: hidden;
@@ -2995,11 +2995,14 @@ textarea {
 }
 
 .page.chat-page {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  height: calc(100vh - 62px);
-  min-height: 680px;
-  padding-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 62px);
+  min-height: 0;
+  padding: 0;
+  width: 100%;
+  max-width: none;
+  margin: 0;
 }
 
 .page.chat-page .page-header {
@@ -3007,8 +3010,13 @@ textarea {
 }
 
 .page.chat-page .chat-workspace {
-  height: 100%;
+  flex: 1;
+  height: auto;
   min-height: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
 }
 
 .page.chat-page .chat-messages {
@@ -3017,20 +3025,22 @@ textarea {
 }
 
 .page.chat-page .chat-input {
-  bottom: 14px;
-  margin: 12px;
+  margin: 12px auto;
+  width: min(100% - 24px, 860px);
 }
 
 .chat-workspace .chat-header {
-  background: linear-gradient(180deg, #fff, var(--surface-3));
+  background: transparent;
 }
 
 .chat-workspace .chat-messages {
-  background: linear-gradient(180deg, rgba(248, 250, 248, 0.72), rgba(255, 255, 255, 0.96));
+  background: transparent;
 }
 
 .chat-workspace .chat-input {
-  background: var(--surface);
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .chat-panel.open {
@@ -5851,29 +5861,12 @@ textarea {
   min-height: 620px;
 }
 
-.solver-context-header {
+.chat-input-context {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border);
-  background: var(--paper-muted);
-}
-
-.solver-context-main {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-width: 0;
-}
-
-.solver-context-label {
-  flex: 0 0 auto;
-  color: var(--ink-faint);
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
+  gap: var(--space-2);
+  padding: 0 var(--space-3) var(--space-3) var(--space-3);
 }
 
 .context-tags {
@@ -5960,7 +5953,7 @@ textarea {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: var(--canvas);
+  background: transparent;
 }
 
 .solver-conversation .chat-messages {
@@ -5974,7 +5967,7 @@ textarea {
   flex-direction: column;
   min-width: 0;
   border-left: 1px solid var(--border);
-  background: var(--paper);
+  background: transparent;
   padding: var(--space-5);
   overflow-y: auto;
 }
@@ -6107,20 +6100,21 @@ textarea {
   position: relative;
   bottom: auto;
   flex: 0 0 auto;
-  margin: var(--space-3);
-  border-color: var(--border-strong);
-  border-radius: 16px;
+  margin: var(--space-3) auto;
+  width: min(100% - 24px, 860px);
+  border: 1px solid var(--border-strong);
+  border-radius: 24px;
   background: var(--paper-raised);
-  box-shadow: 0 8px 24px rgba(35, 47, 39, 0.1);
+  box-shadow: 0 12px 36px rgba(35, 47, 39, 0.08);
 }
 
 .chat-workspace .chat-input textarea,
 .chat-panel .chat-input textarea {
-  min-height: 66px;
+  min-height: 44px;
   color: var(--ink);
+  resize: none;
 }
 
-:root.dark .solver-context-header,
 :root.dark .solver-conversation,
 :root.dark .solver-inspector,
 :root.dark .chat-workspace,
@@ -6156,7 +6150,7 @@ textarea {
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1366px) {
   .solver-body {
     grid-template-columns: minmax(0, 1fr);
   }
