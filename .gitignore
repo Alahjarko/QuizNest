@@ -21,6 +21,7 @@ agent-note/
 *.keystore
 key.properties
 keystore.properties
+keystore-secrets.md
 
 # Node
 node_modules/
