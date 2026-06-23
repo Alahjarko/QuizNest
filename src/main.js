@@ -15,7 +15,7 @@ import { startStudyTimer } from "./services/studyTracker.js";
 import { typesetMath } from "./utils/math.js";
 import { getSettings } from "./services/storage/db.js";
 import { syncToWebdav } from "./services/webdav.js";
-import { setAppFullscreen } from "./services/tauriBridge.js";
+
 
 const appRoot = document.getElementById("app");
 const chatRoot = document.getElementById("chat-root");
@@ -164,10 +164,7 @@ renderApp();
 (async () => {
   try {
     const settings = await getSettings();
-    if (settings.immersiveMode) {
-      setAppFullscreen(true);
-    }
-    
+
     if (settings.webdavSyncFrequency === "startup" && settings.webdavUrl) {
       console.log("启动时自动触发 WebDAV 备份上传...");
       await syncToWebdav();

@@ -146,7 +146,7 @@ button {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 2px 14px;
+  padding: calc(2px + env(safe-area-inset-top, 0px)) 2px 14px;
 }
 
 .sidebar-brand {
@@ -639,10 +639,10 @@ button {
   display: flex;
   align-items: center;
   gap: 16px;
-  min-height: 62px;
+  min-height: calc(62px + env(safe-area-inset-top, 0px));
   border-bottom: 1px solid rgba(220, 227, 223, 0.86);
   background: rgba(255, 255, 255, 0.78);
-  padding: 10px 28px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 28px 10px;
   backdrop-filter: blur(18px);
 }
 
@@ -3060,7 +3060,7 @@ textarea {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  padding: 16px;
+  padding: calc(16px + env(safe-area-inset-top, 0px)) 16px 16px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -3255,7 +3255,7 @@ textarea {
 .chat-input {
   display: grid;
   gap: 12px;
-  margin: 14px;
+  margin: 14px 14px calc(14px + env(safe-area-inset-bottom, 0px)) 14px;
   padding: 14px;
   position: sticky;
   bottom: 0;
