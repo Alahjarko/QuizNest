@@ -27,6 +27,24 @@
 
 ### 2026-06-23 / Antigravity / Gemini 3.1 Pro (High)
 
+**完成内容**：重构了“解惑”界面的上下文选择交互。
+- 彻底删除了顶部原本生硬的“选择上下文”独立框区（`.solver-context-header`）。
+- 将关联功能移至底部聊天输入框区域，重命名为“选择内容”并紧贴“学习新知识”按钮旁。
+- 将“当前上下文”的状态标签 (Context Chips) 作为悬浮元素集成在输入框正上方 (`.chat-input-context`)，使得上下文环境与输入动作结合得更紧密，布局更加精简纯粹。
+**涉及文件**：`src/components/ChatPanel.js`, `src/styles.css`
+**验证方式**：已使用 `node --check` 确认语法无误，并使用 `agent-browser` 技能亲自在 `localhost:5173` 唤起 UI，确认旧顶部栏已消失且新按钮排列在输入框底部工具栏内。
+
+### 2026-06-23 / Antigravity / Gemini 3.1 Pro (High)
+
+**完成内容**：重构了“解惑”界面的空间布局与响应式体验。
+- 移除了原先占据垂直空间的巨大 Page Header，并使输入框变窄（从默认3行减为1行并自动伸缩），换取巨大的垂直对话空间。
+- 在 Pad 端与中等屏幕下（`max-width: 1366px`）默认折叠右侧 Context 面板，转为采用 100vh 全屏流式对话布局 (Full-bleed Layout)，实现真正的沉浸式对话体验。
+**涉及文件**：`src/components/ChatPanel.js`, `src/styles.css`
+**验证方式**：已使用 `node --check` 确认语法无误，并使用 `agent-browser` 技能亲自在 `localhost:5173` 唤起 UI，确认相关头部、面板在不同断点下的渲染正常。
+
+
+### 2026-06-23 / Antigravity / Gemini 3.1 Pro (High)
+
 **完成内容**：优化了首页封面设置的保存逻辑。现在上传或移除封面图片后，系统会自动触发表单提交并保存设置，无需用户再手动点击“保存设置”按钮，提升了连续使用体验。
 **涉及文件**：`src/pages/SettingsPage.js`
 **验证方式**：已使用 `node --check` 确认语法无误，并使用 `agent-browser` 技能亲自在 `localhost:5173` 唤起 UI，确认“设置”页面渲染正常。
