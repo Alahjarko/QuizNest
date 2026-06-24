@@ -1,6 +1,6 @@
 [package]
 name = "quiznest"
-version = "0.1.20"
+version = "0.1.21"
 description = "A Tauri App"
 edition = "2021"
 

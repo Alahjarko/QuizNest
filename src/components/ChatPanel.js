@@ -80,9 +80,12 @@ async function renderChatSurface(root, app, mode) {
             </button>
             ${manualContext ? `<button class="chat-tool-button danger" data-clear-context type="button" ${isSending ? "disabled" : ""} title="清空当前选择的内容"><span>清空</span></button>` : ""}
           </div>
-          <button class="chat-send-button" type="submit" aria-label="${isSending ? "回答中" : "发送"}" title="${isSending ? "回答中" : "发送"}" ${isSending ? "disabled" : ""}>
-            ${chatIcon("arrow-up")}
-          </button>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="chat-shortcut-hint">Enter 发送，Cmd/Ctrl+Enter 换行</span>
+            <button class="chat-send-button" type="submit" aria-label="${isSending ? "回答中" : "发送"}" title="${isSending ? "回答中" : "发送"}" ${isSending ? "disabled" : ""}>
+              ${chatIcon("arrow-up")}
+            </button>
+          </div>
         </div>
       </form>
   `;
@@ -212,6 +215,33 @@ async function renderChatSurface(root, app, mode) {
   root.addEventListener("click", root.chatActionHandler);
 
   const form = root.querySelector("[data-chat-form]");
+
+  form?.addEventListener("click", (e) => {
+    if (e.target.closest("button") || e.target.closest("a")) return;
+    const textarea = form.elements.message;
+    if (textarea && e.target !== textarea) {
+      textarea.focus();
+    }
+  });
+
+  const textarea = form?.elements?.message;
+  if (textarea) {
+    textarea.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          const start = textarea.selectionStart;
+          const end = textarea.selectionEnd;
+          textarea.value = textarea.value.substring(0, start) + "\n" + textarea.value.substring(end);
+          textarea.selectionStart = textarea.selectionEnd = start + 1;
+        } else if (!e.shiftKey) {
+          e.preventDefault();
+          form.requestSubmit();
+        }
+      }
+    });
+  }
+
   form?.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (isSending) return;

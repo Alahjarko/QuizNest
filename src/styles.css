@@ -3308,14 +3308,22 @@ textarea {
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 10px 30px rgba(35, 54, 45, 0.08);
+  cursor: text;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.chat-input:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus-ring), 0 10px 30px rgba(35, 54, 45, 0.12);
 }
 
 .chat-input textarea {
   min-height: 84px;
-  max-height: 200px;
-  border: 0;
+  max-height: 300px;
+  border: 0 !important;
   border-radius: 16px;
-  background: transparent;
+  background: transparent !important;
+  box-shadow: none !important;
   padding: 4px 6px;
   font-size: 16px;
   line-height: 1.6;
@@ -3326,11 +3334,20 @@ textarea {
   outline: none;
 }
 
+.chat-shortcut-hint {
+  font-size: 11px;
+  color: var(--ink-faint);
+  user-select: none;
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
 .chat-input-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  cursor: default;
 }
 
 .chat-input-tools {
@@ -4159,393 +4176,13 @@ textarea {
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --bg: #0f1512;
-    --surface: #151c18;
-    --surface-2: #1b2a22;
-    --surface-3: #111814;
-    --text: #edf3ee;
-    --muted: #a5b0aa;
-    --line: #29362f;
-    --primary: #4bb37e;
-    --primary-strong: #8bd8ad;
-    --primary-soft: #173625;
-    --danger: #ff8a82;
-    --warning: #e3b665;
-    --shadow: 0 18px 46px rgba(0, 0, 0, 0.32);
-    --success-soft: #153423;
-    --danger-soft: #3a1d1c;
-    --warning-soft: #352817;
-    --info-soft: #172b3b;
-  }
 
-  body {
-    background:
-      radial-gradient(circle at 0% 0%, rgba(44, 111, 78, 0.24), transparent 34rem),
-      linear-gradient(135deg, #121915 0%, #0d1310 100%);
-  }
 
-  .app-sidebar {
-    border-right-color: rgba(57, 73, 64, 0.88);
-    background:
-      linear-gradient(155deg, rgba(31, 25, 30, 0.9), rgba(19, 27, 23, 0.94) 52%, rgba(17, 25, 28, 0.9)),
-      rgba(17, 24, 20, 0.92);
-    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.04);
-  }
-
-  .sidebar-brand:hover,
-  .sidebar-collapse-button:hover,
-  .sidebar-nav-item:hover,
-  .sidebar-note-item:hover,
-  .sidebar-notebook-note:hover,
-  .sidebar-notebook-summary:hover,
-  .sidebar-settings-button:hover,
-  .sidebar-settings-menu button:hover,
-  .sidebar-settings-button[aria-expanded="true"] {
-    background: rgba(255, 255, 255, 0.07);
-  }
-
-  .sidebar-nav-item,
-  .sidebar-note-item,
-  .sidebar-notebook-note,
-  .sidebar-settings-button,
-  .sidebar-settings-menu button {
-    color: var(--text);
-  }
-
-  .sidebar-nav-item.active,
-  .sidebar-note-item.active,
-  .sidebar-notebook-note.active,
-  .sidebar-settings-button.active {
-    background: rgba(75, 179, 126, 0.16);
-    box-shadow: inset 0 0 0 1px rgba(75, 179, 126, 0.16);
-  }
-
-  .sidebar-section-title,
-  .sidebar-notebook-summary {
-    color: #7f8b85;
-  }
-
-  .sidebar-notebook-notes {
-    border-left-color: rgba(165, 176, 170, 0.18);
-  }
-
-  .sidebar-empty {
-    border-color: rgba(165, 176, 170, 0.22);
-    background: rgba(255, 255, 255, 0.04);
-  }
-
-  .sidebar-footer {
-    border-top-color: rgba(57, 73, 64, 0.86);
-  }
-
-  .sidebar-settings-menu {
-    border-color: rgba(57, 73, 64, 0.94);
-    background: rgba(20, 28, 24, 0.96);
-    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42);
-  }
-
-  .app-main {
-    background: rgba(13, 19, 16, 0.82);
-  }
-
-  .app-content-header {
-    border-bottom-color: rgba(57, 73, 64, 0.9);
-    background: rgba(16, 23, 19, 0.82);
-  }
-
-  .home-hero {
-    border-color: rgba(57, 73, 64, 0.9);
-  }
-
-  .home-hero::before {
-    background:
-      linear-gradient(135deg, rgba(22, 30, 25, 0.98), rgba(16, 26, 20, 0.94)),
-      var(--surface);
-  }
-
-  .home-hero.has-background::after {
-    background:
-      linear-gradient(90deg, rgba(5, 9, 7, 0.74), rgba(5, 9, 7, 0.52) 54%, rgba(5, 9, 7, 0.35)),
-      rgba(5, 9, 7, 0.28);
-  }
-
-  .tag-row span,
-  .question-meta span,
-  .context-tags span {
-    border-color: rgba(75, 179, 126, 0.18);
-    background: rgba(75, 179, 126, 0.12);
-  }
-
-  .home-hero-card,
-  .home-hero.has-background .home-hero-card {
-    border-color: rgba(75, 179, 126, 0.2);
-    background: rgba(21, 28, 24, 0.82);
-    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26);
-  }
-
-  .hero-panel,
-  .profile-hero-profile,
-  .hero-background-preview {
-    border-color: rgba(57, 73, 64, 0.9);
-    background:
-      radial-gradient(circle at 20% 12%, rgba(42, 96, 68, 0.24), transparent 18rem),
-      linear-gradient(135deg, rgba(21, 29, 24, 0.98), rgba(14, 21, 17, 0.92));
-  }
-
-  .stats-grid > div,
-  .note-card,
-  .settings-form,
-  .empty-state,
-  .error-state,
-  .notebook-create-card,
-  .notebook-card,
-  .study-dashboard,
-  .mini-set-card,
-  .set-card,
-  .analytics-panel,
-  .profile-metric-strip,
-  .profile-activity-card,
-  .set-strip article,
-  .wrong-filters,
-  .wrong-card,
-  .modal,
-  .chat-panel,
-  .chat-workspace,
-  .question-nav,
-  .question-panel,
-  .practice-summary > div,
-  .final-summary,
-  .markdown-body,
-  .section-list,
-  .settings-section {
-    background: var(--surface);
-    border-color: var(--line);
-    box-shadow: var(--shadow);
-  }
-
-  .notebook-note-row,
-  .study-grid > div,
-  .set-meta-grid span,
-  .result-summary > div,
-  .status-box,
-  .switch-row,
-  .checkbox-group label,
-  .chat-context-bar,
-  .chat-message.user,
-  .home-hero-card > div {
-    background: var(--surface-3);
-  }
-
-  .app-content-header,
-  .chat-workspace .chat-header {
-    background: linear-gradient(180deg, rgba(21, 29, 24, 0.96), rgba(17, 24, 20, 0.92));
-  }
-
-  .chat-workspace .chat-messages {
-    background:
-      radial-gradient(circle at 50% 0%, rgba(57, 121, 82, 0.08), transparent 28rem),
-      linear-gradient(180deg, rgba(8, 14, 11, 0.86), rgba(9, 15, 12, 0.98));
-  }
-
-  .chat-input {
-    border-color: rgba(139, 216, 173, 0.2);
-    background: rgba(18, 27, 22, 0.98);
-    box-shadow:
-      0 16px 36px rgba(0, 0, 0, 0.34),
-      inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  }
-
-  .chat-message {
-    border: 1px solid rgba(139, 216, 173, 0.12);
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
-  }
-
-  .chat-message.user {
-    background: linear-gradient(135deg, rgba(38, 90, 62, 0.78), rgba(28, 70, 49, 0.68));
-    border-color: rgba(139, 216, 173, 0.24);
-  }
-
-  .chat-message.user small {
-    color: rgba(237, 243, 238, 0.72);
-  }
-
-  .chat-message.assistant {
-    background: linear-gradient(135deg, rgba(25, 35, 30, 0.98), rgba(20, 29, 24, 0.98));
-    border-color: rgba(255, 255, 255, 0.09);
-  }
-
-  .secondary-button,
-  .icon-button,
-  .chat-tool-button,
-  input,
-  select,
-  textarea,
-  .profile-name-row input,
-  .question-nav-item,
-  .choice-option,
-  .answer-image-preview {
-    background: #101713;
-    border-color: var(--line);
-    color: var(--text);
-  }
-
-  input::placeholder,
-  textarea::placeholder {
-    color: #7f8b85;
-  }
-
-  .secondary-button:hover,
-  .chat-tool-button:hover,
-  .choice-option:hover:not(:disabled),
-  .choice-option.selected,
-  .question-nav-item.active {
-    background: var(--surface-2);
-  }
-
-  .danger-button {
-    background: #201514;
-    border-color: rgba(255, 138, 130, 0.38);
-    color: var(--danger);
-  }
-
-  .status-pill.not_started {
-    background: #242c27;
-    color: var(--muted);
-  }
-
-  .status-pill.in_progress,
-  .question-nav-item.draft {
-    background: var(--warning-soft);
-    border-color: rgba(227, 182, 101, 0.38);
-    color: var(--warning);
-  }
-
-  .status-pill.completed,
-  .question-nav-item.correct,
-  .choice-option.correct,
-  .answer-feedback.correct,
-  .mastery-badge.mastered,
-  .final-summary {
-    background: var(--success-soft);
-    border-color: rgba(139, 216, 173, 0.34);
-    color: var(--primary-strong);
-  }
-
-  .question-nav-item.wrong,
-  .question-nav-item.error,
-  .choice-option.wrong,
-  .answer-feedback.wrong,
-  .mastery-badge {
-    background: var(--danger-soft);
-    border-color: rgba(255, 138, 130, 0.34);
-    color: var(--danger);
-  }
-
-  .question-nav-item.pending {
-    background: var(--info-soft);
-    border-color: rgba(119, 171, 215, 0.38);
-  }
-
-  .answer-image-preview img {
-    background: #0d1310;
-  }
-
-  .markdown-body pre,
-  .chat-message-content pre {
-    background: #07100b;
-    color: #edf3ee;
-  }
-
-  .chat-message-content :not(pre) > code,
-  .math-render-fallback {
-    background: rgba(75, 179, 126, 0.13);
-    border-color: rgba(75, 179, 126, 0.22);
-  }
-
-  .modal-backdrop,
-  .chat-mask {
-    background: rgba(3, 6, 5, 0.62);
-  }
-
-  .heat-cell,
-  .activity-cell {
-    border-color: rgba(139, 216, 173, 0.08);
-    background: #222b25;
-  }
-
-  .heat-cell.level-1,
-  .activity-cell.level-1 {
-    background: #17402a;
-  }
-
-  .heat-cell.level-2,
-  .activity-cell.level-2 {
-    background: #246a43;
-  }
-
-  .heat-cell.level-3,
-  .activity-cell.level-3 {
-    background: #39a263;
-  }
-
-  .heat-cell.level-4,
-  .activity-cell.level-4 {
-    background: #7edaa4;
-  }
-
-  .heatmap-floating-tooltip {
-    border-color: rgba(57, 73, 64, 0.96);
-    background: rgba(20, 28, 24, 0.98);
-    color: var(--text);
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.42);
-  }
-
-  .insight-list > div,
-  .top-model-row,
-  .profile-metric-strip > div + div,
-  .result-table th,
-  .result-table td,
-  .modal-header {
-    border-color: var(--line);
-  }
-
-  .profile-avatar-control,
-  .profile-avatar-fallback,
-  .sidebar-profile-avatar {
-    background:
-      radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.18), transparent 30%),
-      linear-gradient(135deg, #153423, #2f8e57);
-  }
-
-  .toast {
-    background: #edf3ee;
-    color: #0f1512;
-  }
-
-  .toast-success {
-    background: var(--primary);
-    color: #07100b;
-  }
-
-  .toast-error {
-    background: var(--danger);
-    color: #200b0a;
-  }
-
-  .chat-send-button,
-  .primary-button,
-  .brand-mark {
-    color: #07100b;
-  }
-}
-
-/* ===== 手动深色模式 =====
-   与上方 @media (prefers-color-scheme: dark) 规则一一对应，作用域为 :root.dark，
-   使“设置 > 外观”中手动选择的深色主题即时生效（不依赖系统主题）。
-   如需调整深色配色，请同步修改上下两处。 */
+/* ===== 深色模式 =====
+   由于我们在 JS 层使用 matchMedia 统一计算系统主题，并按需添加 .dark 类，
+   因此无论“手动深色”还是“系统深色”，统一使用 :root.dark 作为深色域的触发器。
+   （已移除原生的 media query 避免冲突）
+=========================== */
 :root.dark {
   color-scheme: dark;
   --bg: #0f1512;
@@ -5915,6 +5552,7 @@ textarea {
   align-items: center;
   gap: var(--space-2);
   padding: 0 var(--space-3) var(--space-3) var(--space-3);
+  cursor: default;
 }
 
 @media (min-width: 1367px) {
@@ -6164,7 +5802,7 @@ textarea {
 
 .chat-workspace .chat-input textarea,
 .chat-panel .chat-input textarea {
-  min-height: 44px;
+  min-height: 84px;
   color: var(--ink);
   resize: none;
 }
