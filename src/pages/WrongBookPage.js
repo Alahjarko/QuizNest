@@ -132,8 +132,38 @@ export async function renderWrongBookPage(container, app) {
 
   bindWrongFilters(container, filters);
 
-  container.querySelector("[data-analyze-weakness]").addEventListener("click", async () => {
-    await analyzeWeakness(filters, allWrongItems, noteMap);
+  container.querySelector("[data-analyze-weakness]").addEventListener("click", () => {
+    const availableNoteIds = [...new Set(allWrongItems.filter(item => !item.mastered).map(item => item.noteId))].filter(Boolean);
+    if (availableNoteIds.length === 0) {
+      showToast("当前没有任何未掌握的错题可供分析", "info");
+      return;
+    }
+    const optionsHtml = availableNoteIds.map(noteId => {
+      const title = noteMap.get(noteId)?.title || "未知笔记";
+      return `<option value="${noteId}">${escapeHtml(title)}</option>`;
+    }).join("");
+
+    const modal = openModal({
+      title: "选择要分析的笔记",
+      content: `
+        <div class="form-group">
+          <label>请选择一份笔记以提取薄弱点：</label>
+          <select id="weakness-note-select" class="form-control" style="margin-top: 8px;">
+            ${optionsHtml}
+          </select>
+        </div>
+        <div class="modal-actions" style="margin-top: 24px; display: flex; justify-content: flex-end;">
+          <button class="primary-button" id="start-weakness-analysis" type="button">开始分析</button>
+        </div>
+      `,
+      width: "400px"
+    });
+
+    modal.body.querySelector("#start-weakness-analysis").addEventListener("click", async () => {
+      const selectedNoteId = modal.body.querySelector("#weakness-note-select").value;
+      modal.close();
+      await analyzeWeakness(selectedNoteId, allWrongItems, noteMap);
+    });
   });
   bindOverflowMenus(container);
 
@@ -280,12 +310,12 @@ function renderWrongItem(item, note) {
             <div>${escapeHtml(item.userAnswer || "未记录")}</div>
           </section>
           <section>
-            <p class="detail-label">正确或参考答案</p>
-            <div>${escapeHtml(item.correctAnswer || "未记录")}</div>
-          </section>
-          <section>
             <p class="detail-label">错误原因</p>
             <div>${escapeHtml(item.errorReason || "未记录")}</div>
+          </section>
+          <section class="mistake-correct-answer">
+            <p class="detail-label">正确或参考答案</p>
+            <div>${escapeHtml(item.correctAnswer || "未记录")}</div>
           </section>
           <section class="mistake-ai-explanation">
             <p class="detail-label">AI 解析</p>
@@ -380,14 +410,9 @@ function bindWrongFilters(container, initialFilters) {
   applyFilters();
 }
 
-async function analyzeWeakness(filters, allWrongItems, noteMap) {
-  if (filters.noteId === "all") {
-    showToast("请先在筛选器中选择一份笔记", "error");
-    return;
-  }
-
-  const note = noteMap.get(filters.noteId);
-  const wrongItems = allWrongItems.filter((item) => item.noteId === filters.noteId && !item.mastered);
+async function analyzeWeakness(noteId, allWrongItems, noteMap) {
+  const note = noteMap.get(noteId);
+  const wrongItems = allWrongItems.filter((item) => item.noteId === noteId && !item.mastered);
   if (!note) {
     showToast("未找到笔记", "error");
     return;

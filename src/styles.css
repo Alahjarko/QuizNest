@@ -2464,17 +2464,25 @@ textarea {
 
 .markdown-body mjx-container,
 .question-panel mjx-container,
+.mistake-card mjx-container,
 .wrong-card mjx-container,
 .chat-message mjx-container {
+  display: inline-block;
+  min-width: 0;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: visible;
   max-width: 100%;
+  padding-block: 2px;
+  vertical-align: middle;
 }
 
 .markdown-body mjx-container[display="true"],
 .question-panel mjx-container[display="true"],
+.mistake-card mjx-container[display="true"],
 .wrong-card mjx-container[display="true"],
 .chat-message mjx-container[display="true"] {
+  display: block;
+  width: 100%;
   padding: 8px 0;
 }
 
@@ -2627,11 +2635,18 @@ textarea {
 
 .question-panel {
   padding: 22px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .question-panel h2 {
   margin: 10px 0 18px;
   line-height: 1.45;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .question-meta {
@@ -2687,6 +2702,9 @@ textarea {
   border-radius: 8px;
   padding: 14px;
   line-height: 1.65;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .answer-feedback.correct {
@@ -2706,6 +2724,27 @@ textarea {
 .subjective-answer {
   display: grid;
   gap: 14px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.subjective-answer > *,
+.subjective-answer > label,
+.question-panel .status-box,
+.question-panel textarea {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.subjective-answer > label {
+  display: block;
+}
+
+.question-panel textarea {
+  display: block;
+  overflow-x: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .image-answer-row {
@@ -5622,19 +5661,20 @@ textarea {
 }
 
 .mistake-card-heading h2 {
-  display: -webkit-box;
+  display: block;
   margin: 5px 0 0;
-  overflow: hidden;
+  overflow: visible;
   color: var(--ink);
   font-size: 16px;
   line-height: 1.55;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .mistake-diagnosis {
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr);
+  align-items: start;
   gap: var(--space-2);
   margin-top: var(--space-3);
   padding: 10px 12px;
@@ -5653,6 +5693,8 @@ textarea {
   color: var(--ink-secondary);
   font-size: 12px;
   line-height: 1.55;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .mistake-meta {
@@ -5728,7 +5770,8 @@ textarea {
 }
 
 .mistake-detail-grid .mistake-question-sheet,
-.mistake-detail-grid .mistake-ai-explanation {
+.mistake-detail-grid .mistake-ai-explanation,
+.mistake-detail-grid .mistake-correct-answer {
   grid-column: 1 / -1;
 }
 
@@ -6756,6 +6799,8 @@ textarea {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin: 16px 0;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .grading-diagnosis > div {
@@ -6783,6 +6828,8 @@ textarea {
   display: grid;
   gap: 8px;
   margin: 14px 0;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .grading-step-row {
@@ -6794,11 +6841,14 @@ textarea {
   border-left: 3px solid var(--accent);
   border-radius: 8px;
   background: var(--surface-3);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .grading-step-row > div {
   display: grid;
   gap: 4px;
+  min-width: 0;
 }
 
 .grading-step-row b {
@@ -6834,6 +6884,8 @@ textarea {
   padding: 10px 12px;
   border-radius: 12px;
   background: var(--surface-3);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .grading-history small {
