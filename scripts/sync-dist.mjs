@@ -14,7 +14,10 @@ fs.mkdirSync(distDir, { recursive: true });
 fs.rmSync(distSrcDir, { recursive: true, force: true });
 fs.rmSync(distVendorDir, { recursive: true, force: true });
 fs.cpSync(path.join(root, "src"), distSrcDir, { recursive: true });
-fs.copyFileSync(path.join(root, "index.html"), path.join(distDir, "index.html"));
+const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf-8"));
+let htmlContent = fs.readFileSync(path.join(root, "index.html"), "utf-8");
+htmlContent = htmlContent.replace("</head>", `  <script>window.__APP_VERSION__ = "${pkg.version}";</script>\n</head>`);
+fs.writeFileSync(path.join(distDir, "index.html"), htmlContent);
 
 if (fs.existsSync(pdfjsBuildDir)) {
   const pdfjsDistDir = path.join(distVendorDir, "pdfjs");

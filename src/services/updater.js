@@ -4,7 +4,21 @@ const GITHUB_REPO = "Alahjarko/QuizNest";
 
 export async function checkUpdates() {
   try {
-    const currentVersion = await window.__TAURI__.app.getVersion();
+    let currentVersion = window.__APP_VERSION__;
+    if (!currentVersion && window.__TAURI__?.app?.getVersion) {
+      try {
+        currentVersion = await window.__TAURI__.app.getVersion();
+      } catch (e) {
+        console.warn("[updater] Tauri app.getVersion 调用失败:", e);
+      }
+    }
+    if (!currentVersion) {
+      console.warn(
+        "[updater] 无法获取当前应用版本，跳过更新检查。window.__APP_VERSION__ =",
+        window.__APP_VERSION__
+      );
+      return;
+    }
     
     const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`);
     if (!res.ok) return;
