@@ -62,10 +62,25 @@ async function renderChatSurface(root, app, mode) {
           </div>
         </div>
         ${mode === "workspace" ? renderContextInspector(context, messages) : ""}
+        
+        <!-- Drawer Overlay for Tablet -->
+        <div class="drawer-overlay" data-drawer-overlay></div>
+        
+        <!-- Context Drawer for Tablet -->
+        <div class="context-drawer" data-context-drawer>
+          <div class="drawer-header">
+            <h3>上下文详情</h3>
+            <button class="icon-button" data-drawer-close type="button" aria-label="关闭">×</button>
+          </div>
+          <div class="drawer-content">
+            ${mode === "workspace" ? renderContextInspector(context, messages).replace('class="solver-inspector"', 'class="solver-inspector-inner"') : ""}
+          </div>
+        </div>
       </div>
       <form class="chat-input" data-chat-form>
         <div class="chat-input-context">
           ${renderContextTags(context)}
+          ${mode === "workspace" ? `<button class="drawer-toggle-btn" data-drawer-open type="button" aria-label="打开上下文" title="打开解题上下文">${chatIcon("panel-right-open")}<span>上下文</span></button>` : ""}
         </div>
         <textarea name="message" rows="1" placeholder="写下问题、推导过程或你没有理解的地方..." ${isSending ? "disabled" : ""}>${escapeHtml(draftMessage)}</textarea>
         <div class="chat-input-toolbar">
@@ -148,6 +163,21 @@ async function renderChatSurface(root, app, mode) {
         textarea.value = quickPromptButton.dataset.quickPrompt || "";
         textarea.focus();
       }
+      return;
+    }
+
+    const drawerOpenButton = event.target.closest("[data-drawer-open]");
+    if (drawerOpenButton && root.contains(drawerOpenButton)) {
+      root.querySelector("[data-context-drawer]")?.classList.add("open");
+      root.querySelector("[data-drawer-overlay]")?.classList.add("active");
+      return;
+    }
+
+    const drawerCloseButton = event.target.closest("[data-drawer-close]");
+    const overlay = event.target.closest("[data-drawer-overlay]");
+    if ((drawerCloseButton || overlay) && root.contains(event.target)) {
+      root.querySelector("[data-context-drawer]")?.classList.remove("open");
+      root.querySelector("[data-drawer-overlay]")?.classList.remove("active");
       return;
     }
 
@@ -877,7 +907,8 @@ function chatIcon(name) {
     refresh: `<path d="M21 12a9 9 0 0 1-15.5 6.2"/><path d="M3 12A9 9 0 0 1 18.5 5.8"/><path d="M18 2v4h4"/><path d="M6 22v-4H2"/>`,
     lightbulb: `<path d="M9 18h6"/><path d="M10 22h4"/><path d="M8.5 14.5A6 6 0 1 1 15.5 14.5C14.5 15.3 14 16 14 18h-4c0-2-.5-2.7-1.5-3.5Z"/>`,
     "chevron-left": `<path d="m15 18-6-6 6-6"/>`,
-    "chevron-right": `<path d="m9 18 6-6-6-6"/>`
+    "chevron-right": `<path d="m9 18 6-6-6-6"/>`,
+    "panel-right-open": `<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M15 3v18"/>`
   };
 
   return `<svg class="lucide-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${paths[name] || ""}</svg>`;

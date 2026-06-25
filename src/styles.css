@@ -5552,7 +5552,7 @@ textarea {
 }
 
 .page.chat-page {
-  min-height: 620px;
+  min-height: 0;
 }
 
 .chat-input-context {
@@ -5801,7 +5801,7 @@ textarea {
   position: relative;
   bottom: auto;
   flex: 0 0 auto;
-  margin: var(--space-3) auto;
+  margin: var(--space-3) auto calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
   width: min(100% - 24px, 860px);
   border: 1px solid var(--border-strong);
   border-radius: 24px;
@@ -5905,7 +5905,7 @@ textarea {
 
   .chat-workspace .chat-input,
   .chat-panel .chat-input {
-    margin: var(--space-2);
+    margin: var(--space-2) var(--space-2) calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
     padding: var(--space-3);
   }
 }
@@ -6633,4 +6633,87 @@ textarea {
   .knowledge-mastery-list {
     grid-template-columns: 1fr;
   }
+}
+
+/* ====== Context Drawer (Tablet Layout) ====== */
+.drawer-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 10;
+}
+
+.drawer-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.context-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 360px;
+  max-width: 85%;
+  height: 100%;
+  background: var(--paper);
+  box-shadow: -4px 0 24px rgba(0,0,0,0.08);
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+}
+
+.context-drawer.open {
+  transform: translateX(0);
+}
+
+.context-drawer .drawer-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.context-drawer .drawer-header h3 {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.context-drawer .drawer-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+/* Ensure inner inspector fits */
+.context-drawer .solver-inspector-inner {
+  width: 100%;
+  border-left: none;
+  background: transparent;
+  padding-bottom: var(--space-4);
+}
+
+.drawer-toggle-btn {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--paper);
+  color: var(--accent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.drawer-toggle-btn:hover {
+  background: var(--accent-soft);
 }
