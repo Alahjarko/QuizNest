@@ -2963,6 +2963,15 @@ textarea {
   background: var(--primary-strong);
 }
 
+.toast-clickable {
+  cursor: pointer;
+}
+
+.toast-clickable:hover {
+  opacity: 0.95;
+  transform: scale(1.02);
+}
+
 .toast-error {
   background: var(--danger);
 }

@@ -15,6 +15,7 @@ import { startStudyTimer } from "./services/studyTracker.js";
 import { typesetMath } from "./utils/math.js";
 import { getSettings } from "./services/storage/db.js";
 import { performBidirectionalSync } from "./services/webdav.js";
+import { checkUpdates } from "./services/updater.js";
 
 
 const appRoot = document.getElementById("app");
@@ -218,3 +219,8 @@ renderApp();
     console.error("启动 WebDAV 同步失败:", err);
   }
 })();
+
+// 延迟检查更新，避免影响启动性能
+window.setTimeout(() => {
+  checkUpdates();
+}, 5000);
