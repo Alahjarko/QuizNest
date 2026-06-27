@@ -41,6 +41,8 @@ export async function buildLearningBackup(includeDeleted = false) {
       stores[storeName] = await getAll(storeName, includeDeleted);
       if (storeName === "settings") {
         stores[storeName] = stores[storeName].map(sanitizeSettingsForBackup);
+      } else if (storeName === "answers") {
+        stores[storeName] = stores[storeName].map(sanitizeAnswerForBackup);
       }
     })
   );
@@ -106,7 +108,8 @@ export function mergeSyncData(localStores, remoteStores) {
         }
       }
     }
-    mergedStores[storeName] = Array.from(mergedMap.values());
+    const mergedRows = Array.from(mergedMap.values());
+    mergedStores[storeName] = storeName === "answers" ? mergedRows.map(sanitizeAnswerForBackup) : mergedRows;
   }
   
   return mergedStores;
@@ -156,6 +159,15 @@ export function preserveLocalOnlySettingsInStores(stores, localSettings = {}) {
   };
 }
 
+export function sanitizeAnswerForBackup(answer) {
+  if (!answer || typeof answer !== "object") return answer;
+  const sanitized = { ...answer };
+  delete sanitized.imageDataUrl;
+  delete sanitized.imageName;
+  delete sanitized.imageType;
+  return sanitized;
+}
+
 export async function importLearningBackup(rawBackup) {
   const backup = parseLearningBackup(rawBackup);
   const stores = backup.stores;
@@ -168,6 +180,8 @@ export async function importLearningBackup(rawBackup) {
     let validRows = rows.filter((row) => row && typeof row === "object" && row.id);
     if (storeName === "settings" && localSettings) {
       validRows = validRows.map((row) => preserveLocalOnlySettings(row, localSettings));
+    } else if (storeName === "answers") {
+      validRows = validRows.map(sanitizeAnswerForBackup);
     }
     if (validRows.length > 0) {
       await putMany(storeName, validRows);

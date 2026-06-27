@@ -52,6 +52,14 @@
   --info-soft: #eef6ff;
 }
 
+@font-face {
+  font-family: "MFPinSong Noncommercial";
+  src: url("./assets/fonts/MFPinSong_Noncommercial-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -3658,10 +3666,16 @@ textarea {
   max-width: 680px;
   margin: var(--space-2) 0 var(--space-4);
   color: var(--ink);
+  font-family:
+    "MFPinSong Noncommercial",
+    "Songti SC",
+    "STSong",
+    "Noto Serif CJK SC",
+    serif;
   font-size: clamp(32px, 4vw, 48px);
-  line-height: 1.25;
-  letter-spacing: -0.02em;
-  font-weight: 800;
+  line-height: 1.18;
+  letter-spacing: 0.01em;
+  font-weight: 400;
   text-wrap: balance;
 }
 
