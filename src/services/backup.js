@@ -1,7 +1,15 @@
-import { getAll, putMany } from "./storage/db.js";
+import { getAll, getSettings, putMany } from "./storage/db.js";
 
 const BACKUP_KIND = "quiznest.learning-backup";
 const BACKUP_VERSION = 2;
+const SETTINGS_LOCAL_ONLY_FIELDS = [
+  "apiKey",
+  "commonApiKey",
+  "webdavPassword",
+  "homeHeroImageDataUrl",
+  "homeHeroImageName"
+];
+const ROLE_CONFIG_KEYS = ["questionConfig", "noteConfig", "gradingConfig", "chatConfig"];
 
 export const BACKUP_STORES = [
   "profile",
@@ -32,22 +40,7 @@ export async function buildLearningBackup(includeDeleted = false) {
     BACKUP_STORES.map(async (storeName) => {
       stores[storeName] = await getAll(storeName, includeDeleted);
       if (storeName === "settings") {
-        stores[storeName] = stores[storeName].map(s => {
-          const sCopy = { ...s };
-          // Strip sensitive credentials from sync payload
-          sCopy.apiKey = "";
-          sCopy.commonApiKey = "";
-          if (sCopy.questionConfig) sCopy.questionConfig = { ...sCopy.questionConfig, apiKey: "" };
-          if (sCopy.noteConfig) sCopy.noteConfig = { ...sCopy.noteConfig, apiKey: "" };
-          if (sCopy.gradingConfig) sCopy.gradingConfig = { ...sCopy.gradingConfig, apiKey: "" };
-          if (sCopy.chatConfig) sCopy.chatConfig = { ...sCopy.chatConfig, apiKey: "" };
-          
-          sCopy.webdavPassword = "";
-          
-          sCopy.homeHeroImageDataUrl = "";
-          sCopy.homeHeroImageName = "";
-          return sCopy;
-        });
+        stores[storeName] = stores[storeName].map(sanitizeSettingsForBackup);
       }
     })
   );
@@ -119,15 +112,63 @@ export function mergeSyncData(localStores, remoteStores) {
   return mergedStores;
 }
 
+export function sanitizeSettingsForBackup(settings) {
+  const sanitized = { ...settings };
+  for (const field of SETTINGS_LOCAL_ONLY_FIELDS) {
+    sanitized[field] = "";
+  }
+  for (const configKey of ROLE_CONFIG_KEYS) {
+    if (sanitized[configKey]) {
+      sanitized[configKey] = { ...sanitized[configKey], apiKey: "" };
+    }
+  }
+  return sanitized;
+}
+
+export function preserveLocalOnlySettings(settings, localSettings = {}) {
+  if (!settings || typeof settings !== "object") return settings;
+
+  const preserved = { ...settings };
+  for (const field of SETTINGS_LOCAL_ONLY_FIELDS) {
+    preserved[field] = localSettings[field] || "";
+  }
+  for (const configKey of ROLE_CONFIG_KEYS) {
+    const localConfig = localSettings[configKey];
+    const targetConfig = preserved[configKey];
+    if (targetConfig || localConfig?.apiKey) {
+      preserved[configKey] = {
+        ...(targetConfig && typeof targetConfig === "object" ? targetConfig : {}),
+        apiKey: localConfig?.apiKey || ""
+      };
+    }
+  }
+  return preserved;
+}
+
+export function preserveLocalOnlySettingsInStores(stores, localSettings = {}) {
+  if (!stores || typeof stores !== "object" || !Array.isArray(stores.settings)) {
+    return stores;
+  }
+
+  return {
+    ...stores,
+    settings: stores.settings.map((settings) => preserveLocalOnlySettings(settings, localSettings))
+  };
+}
+
 export async function importLearningBackup(rawBackup) {
   const backup = parseLearningBackup(rawBackup);
   const stores = backup.stores;
   const imported = {};
   const skipped = {};
+  const localSettings = Array.isArray(stores.settings) && stores.settings.length > 0 ? await getSettings() : null;
 
   for (const storeName of BACKUP_STORES) {
     const rows = Array.isArray(stores[storeName]) ? stores[storeName] : [];
-    const validRows = rows.filter((row) => row && typeof row === "object" && row.id);
+    let validRows = rows.filter((row) => row && typeof row === "object" && row.id);
+    if (storeName === "settings" && localSettings) {
+      validRows = validRows.map((row) => preserveLocalOnlySettings(row, localSettings));
+    }
     if (validRows.length > 0) {
       await putMany(storeName, validRows);
     }

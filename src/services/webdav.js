@@ -1,4 +1,4 @@
-import { buildLearningBackup, mergeSyncData, parseLearningBackup, BACKUP_STORES } from "./backup.js";
+import { buildLearningBackup, mergeSyncData, parseLearningBackup, preserveLocalOnlySettingsInStores, BACKUP_STORES } from "./backup.js";
 import { getSettings, saveSettings, putMany } from "./storage/db.js";
 
 function getWebdavAuth(settings) {
@@ -100,9 +100,14 @@ export async function performBidirectionalSync() {
     finalStores = mergeSyncData(localBackup.stores, remoteBackup.stores);
   }
 
-  // Save merged result back to local DB
+  const storesForLocalDb = preserveLocalOnlySettingsInStores(finalStores, settings);
+
+  // Save merged result back to local DB. Local-only fields such as API keys,
+  // WebDAV password and the home hero image must survive even if the sync
+  // upload fails after this point.
   for (const storeName of BACKUP_STORES) {
-    const validRows = finalStores[storeName].filter(row => row && typeof row === "object" && row.id);
+    const rows = Array.isArray(storesForLocalDb[storeName]) ? storesForLocalDb[storeName] : [];
+    const validRows = rows.filter(row => row && typeof row === "object" && row.id);
     if (validRows.length > 0) {
       await putMany(storeName, validRows);
     }
@@ -121,7 +126,8 @@ export async function performBidirectionalSync() {
     
     await doWebdavRequest("PUT", fileUrl, getWebdavAuth(settings), JSON.stringify(uploadPayload));
     const now = new Date().toISOString();
-    await saveSettings({ ...settings, lastWebdavSyncAt: now });
+    const mergedSettings = await getSettings();
+    await saveSettings({ ...mergedSettings, lastWebdavSyncAt: now });
     return now;
   } catch (err) {
     throw new Error(`上传合并后数据失败: ${err.message}`);

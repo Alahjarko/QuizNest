@@ -166,7 +166,7 @@ export async function renderSettingsPage(container, app) {
         <div>
           <p class="eyebrow">云端同步</p>
           <h2>WebDAV 备份同步</h2>
-          <p>配置 WebDAV (如坚果云、Nextcloud) 以实现跨设备同步。云端同步会完整包含所有学习数据、设置以及首页封面。</p>
+          <p>配置 WebDAV (如坚果云、Nextcloud) 以实现跨设备同步。云端同步会同步学习数据与非敏感设置；API Key、WebDAV 密码和首页封面图片只保留在本机。</p>
         </div>
       </div>
       <div class="apple-form">
