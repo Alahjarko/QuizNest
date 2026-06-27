@@ -61,7 +61,7 @@ function isChatOpen() {
 
 function isStudyRouteActive() {
   const route = parseRoute();
-  return ["note", "practice", "wrong"].includes(route.segments[0]) || chatOpen;
+  return ["note", "practice", "wrong", "chat"].includes(route.segments[0]) || chatOpen;
 }
 
 function pageTitle(route) {

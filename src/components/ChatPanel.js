@@ -511,6 +511,7 @@ async function sendAssistantMessage({ app, context, learningMemories, history, u
       temperature: 0.45,
       timeoutMs: 180000,
       onToken: (_token, fullText) => {
+        if (!hasVisibleStreamingContent(fullText)) return;
         renderAssistantContent(assistantContentEl, fullText, { deferMath: true });
         scrollMessagesToBottom(messagesEl);
       }
@@ -554,6 +555,10 @@ async function sendAssistantMessage({ app, context, learningMemories, history, u
     isSending = false;
     setChatFormSending(form, false);
   }
+}
+
+function hasVisibleStreamingContent(content) {
+  return String(content || "").trim().length > 0;
 }
 
 function findPreviousUserIndex(messages, startIndex) {
