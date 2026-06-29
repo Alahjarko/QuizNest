@@ -511,6 +511,12 @@ button {
   display: none;
 }
 
+.sidebar-settings-menu.sidebar-settings-menu-floating {
+  position: fixed;
+  right: auto;
+  z-index: 1000;
+}
+
 .sidebar-tooltip {
   position: fixed;
   z-index: 80;
@@ -625,10 +631,12 @@ button {
   }
 
   .app-shell.sidebar-collapsed .sidebar-settings-menu {
+    position: fixed;
     right: auto;
-    bottom: 0;
-    left: calc(100% + 10px);
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    left: calc(var(--sidebar-width-collapsed) + 10px);
     width: 220px;
+    z-index: 90;
   }
 }
 
@@ -5567,6 +5575,7 @@ textarea {
 
 .page.chat-page {
   min-height: 0;
+  overflow-x: hidden;
 }
 
 .chat-input-context {
@@ -5653,6 +5662,7 @@ textarea {
 }
 
 .solver-body {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 282px;
   flex: 1 1 auto;

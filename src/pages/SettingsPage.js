@@ -13,10 +13,15 @@ import {
 } from "../components/MemoryManager.js";
 import { testWebdavConnection, performBidirectionalSync } from "../services/webdav.js";
 import { setAppFullscreen } from "../services/tauriBridge.js";
+import { checkUpdates, getCurrentAppVersion } from "../services/updater.js";
 
 export async function renderSettingsPage(container, app) {
   app.setContext({ contextKey: "settings" });
-  const [rawSettings, memoryOverview] = await Promise.all([getSettings(), getMemoryOverview()]);
+  const [rawSettings, memoryOverview, currentAppVersion] = await Promise.all([
+    getSettings(),
+    getMemoryOverview(),
+    getCurrentAppVersion()
+  ]);
   const settings = normalizeSettingsForForm(rawSettings);
 
   container.innerHTML = `
@@ -34,6 +39,7 @@ export async function renderSettingsPage(container, app) {
       <button type="button" data-settings-jump="settings-memory"><span>03</span>长期记忆</button>
       <button type="button" data-settings-jump="settings-webdav"><span>04</span>云端同步</button>
       <button type="button" data-settings-jump="settings-data"><span>05</span>数据管理</button>
+      <button type="button" data-settings-jump="settings-update"><span>06</span>应用更新</button>
     </nav>
 
     <form class="settings-form apple-form settings-model-form" data-settings-form id="settings-model">
@@ -222,12 +228,27 @@ export async function renderSettingsPage(container, app) {
       </div>
       <div class="status-box">导入会合并到当前本机数据中；如果记录 ID 相同，会用备份内容覆盖本机同一条记录。</div>
     </section>
+
+    <section class="settings-section data-section" id="settings-update">
+      <div class="section-heading inline">
+        <div>
+          <p class="eyebrow">应用更新</p>
+          <h2>版本更新</h2>
+          <p>手动检查 GitHub Release，发现新版本时会提示前往下载。自动检查仍会在启动后静默运行。</p>
+        </div>
+      </div>
+      <div class="backup-actions">
+        <button class="secondary-button" type="button" data-check-updates>手动检测更新</button>
+      </div>
+      <div class="status-box" data-update-status>当前版本：${currentAppVersion ? `v${escapeHtml(currentAppVersion)}` : "未知"}</div>
+    </section>
   `;
 
   const form = container.querySelector("[data-settings-form]");
   bindSettingsInteractions(container, form);
   bindBackupActions(container, app);
   bindWebdavActions(container, app, settings);
+  bindUpdateActions(container);
   bindMemorySettingsSection(container);
 
   container.querySelectorAll("[data-settings-jump]").forEach((button) => {
@@ -329,6 +350,35 @@ function bindWebdavActions(container, app, settings) {
     } finally {
       button.disabled = false;
       button.textContent = "立即双向同步";
+    }
+  });
+}
+
+function bindUpdateActions(container) {
+  const button = container.querySelector("[data-check-updates]");
+  const statusBox = container.querySelector("[data-update-status]");
+  if (!button) return;
+
+  button.addEventListener("click", async () => {
+    const oldText = button.textContent;
+    button.disabled = true;
+    button.textContent = "检查中...";
+    if (statusBox) statusBox.textContent = "正在检查 GitHub 最新 Release...";
+
+    try {
+      const result = await checkUpdates({ silent: false, force: true });
+      if (!statusBox) return;
+
+      if (result.ok && result.hasUpdate) {
+        statusBox.textContent = `发现新版本 v${result.latestVersion}，当前版本 v${result.currentVersion}。请点击弹出的提示前往下载。`;
+      } else if (result.ok) {
+        statusBox.textContent = `当前已是最新版本：v${result.currentVersion}`;
+      } else {
+        statusBox.textContent = `检查失败：${result.message || "未知错误"}`;
+      }
+    } finally {
+      button.disabled = false;
+      button.textContent = oldText;
     }
   });
 }

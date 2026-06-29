@@ -9,6 +9,7 @@ const ROOT = path.resolve(__dirname, "..");
 const PORT = Number(globalThis.process?.env?.PORT || 5173);
 const BODY_LIMIT = 25 * 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 180000;
+let appVersionPromise = null;
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -23,6 +24,23 @@ const MIME_TYPES = {
   ".webp": "image/webp",
   ".ico": "image/x-icon"
 };
+
+async function getAppVersion() {
+  if (!appVersionPromise) {
+    appVersionPromise = fs
+      .readFile(path.join(ROOT, "package.json"), "utf-8")
+      .then((content) => JSON.parse(content).version || "")
+      .catch(() => "");
+  }
+  return appVersionPromise;
+}
+
+async function injectAppVersion(html) {
+  if (html.includes("window.__APP_VERSION__")) return html;
+  const version = await getAppVersion();
+  if (!version) return html;
+  return html.replace("</head>", `  <script>window.__APP_VERSION__ = "${version}";</script>\n</head>`);
+}
 
 function sendJson(res, status, payload) {
   res.writeHead(status, {
@@ -349,7 +367,10 @@ async function serveStatic(req, res) {
     }
 
     const ext = path.extname(filePath).toLowerCase();
-    const content = await fs.readFile(filePath);
+    let content = await fs.readFile(filePath);
+    if (pathname === "/index.html") {
+      content = await injectAppVersion(content.toString("utf-8"));
+    }
     res.writeHead(200, {
       "Content-Type": MIME_TYPES[ext] || "application/octet-stream",
       "Cache-Control": "no-store"

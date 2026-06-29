@@ -124,16 +124,59 @@ export function bindAppLayout(root, { navigate }) {
   const tooltipSources = Array.from(root.querySelectorAll("[data-sidebar-tooltip-label]"));
   const notebookDetails = Array.from(root.querySelectorAll("[data-sidebar-notebook-id]"));
 
+  const dockMenu = () => {
+    if (!menu || !toggle) return;
+    menu.classList.remove("sidebar-settings-menu-floating");
+    delete menu.dataset.sidebarMenuFloating;
+    menu.style.left = "";
+    menu.style.bottom = "";
+    menu.style.width = "";
+
+    const footer = root.querySelector(".sidebar-footer");
+    if (footer?.contains(toggle) && menu.parentElement !== footer) {
+      footer.insertBefore(menu, toggle);
+    } else if (!footer?.contains(toggle) && menu.parentElement === document.body) {
+      menu.remove();
+    }
+  };
+
+  const floatMenu = () => {
+    if (!menu || !toggle) return;
+    const rect = toggle.getBoundingClientRect();
+    menu.classList.add("sidebar-settings-menu-floating");
+    menu.dataset.sidebarMenuFloating = "true";
+    menu.style.left = `${Math.round(rect.right + 10)}px`;
+    menu.style.bottom = `${Math.max(12, Math.round(window.innerHeight - rect.bottom))}px`;
+    menu.style.width = "220px";
+    if (menu.parentElement !== document.body) {
+      document.body.appendChild(menu);
+    }
+  };
+
+  const shouldFloatMenu = () => (
+    Boolean(shell?.classList.contains("sidebar-collapsed")) &&
+    !window.matchMedia("(max-width: 760px)").matches
+  );
+
+  const openMenu = () => {
+    if (!menu || !toggle) return;
+    menu.hidden = false;
+    if (shouldFloatMenu()) floatMenu();
+    else dockMenu();
+    toggle.setAttribute("aria-expanded", "true");
+  };
+
   const closeMenu = () => {
     if (!menu || !toggle) return;
     menu.hidden = true;
     toggle.setAttribute("aria-expanded", "false");
+    dockMenu();
   };
 
   const toggleMenu = () => {
     if (!menu || !toggle) return;
-    menu.hidden = !menu.hidden;
-    toggle.setAttribute("aria-expanded", String(!menu.hidden));
+    if (menu.hidden) openMenu();
+    else closeMenu();
   };
 
   const hideTooltip = () => {
@@ -199,7 +242,7 @@ export function bindAppLayout(root, { navigate }) {
 
   const onDocumentPointerDown = (event) => {
     const footer = root.querySelector(".sidebar-footer");
-    if (!footer?.contains(event.target)) closeMenu();
+    if (!footer?.contains(event.target) && !menu?.contains(event.target)) closeMenu();
   };
 
   const onDocumentKeydown = (event) => {
@@ -217,7 +260,9 @@ export function bindAppLayout(root, { navigate }) {
 
   document.addEventListener("pointerdown", onDocumentPointerDown);
   document.addEventListener("keydown", onDocumentKeydown);
+  window.addEventListener("resize", closeMenu);
   cleanupLayoutEvents = () => {
+    if (menu?.dataset.sidebarMenuFloating === "true") menu.remove();
     tooltipSources.forEach((source) => {
       source.removeEventListener("mouseenter", showTooltip);
       source.removeEventListener("mouseleave", hideTooltip);
@@ -227,6 +272,7 @@ export function bindAppLayout(root, { navigate }) {
     notebookDetails.forEach((details) => details.removeEventListener("toggle", onNotebookToggle));
     document.removeEventListener("pointerdown", onDocumentPointerDown);
     document.removeEventListener("keydown", onDocumentKeydown);
+    window.removeEventListener("resize", closeMenu);
   };
 }
 
