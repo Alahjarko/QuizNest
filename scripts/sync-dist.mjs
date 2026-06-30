@@ -9,6 +9,7 @@ const distVendorDir = path.join(distDir, "vendor");
 const pdfjsBuildDir = path.join(root, "node_modules", "pdfjs-dist", "build");
 const jszipDistDir = path.join(root, "node_modules", "jszip", "dist");
 const pptxSvgDistDir = path.join(root, "node_modules", "pptx-svg", "dist");
+const mathjaxEs5Dir = path.join(root, "node_modules", "mathjax", "es5");
 
 fs.mkdirSync(distDir, { recursive: true });
 fs.rmSync(distSrcDir, { recursive: true, force: true });
@@ -46,6 +47,14 @@ if (fs.existsSync(pptxSvgDistDir)) {
       fs.copyFileSync(path.join(pptxSvgDistDir, entry), path.join(targetDir, entry));
     }
   }
+}
+
+// MathJax：本地公式渲染运行时，避免 Tauri WebView 依赖 CDN。
+// 运行时优先加载 /vendor/mathjax/tex-svg.js；开发环境可回退到 /node_modules。
+if (fs.existsSync(mathjaxEs5Dir)) {
+  const targetDir = path.join(distVendorDir, "mathjax");
+  fs.mkdirSync(targetDir, { recursive: true });
+  fs.copyFileSync(path.join(mathjaxEs5Dir, "tex-svg.js"), path.join(targetDir, "tex-svg.js"));
 }
 
 console.log("已同步前端文件到 dist/");

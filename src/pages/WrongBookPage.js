@@ -20,11 +20,15 @@ import { startElapsedTimer } from "../utils/elapsedTimer.js";
 import { readImageFile } from "../utils/file.js";
 import { formatDateTime, nowIso } from "../utils/ids.js";
 import { escapeHtml } from "../utils/markdown.js";
-import { typesetMath } from "../utils/math.js";
+import { observeMathInView, typesetMath } from "../utils/math.js";
 
 const LABELS = ["A", "B", "C", "D"];
+let cleanupWrongBookMath = null;
 
 export async function renderWrongBookPage(container, app) {
+  if (cleanupWrongBookMath) cleanupWrongBookMath();
+  container.dataset.mathManaged = "true";
+
   const rawWrongItems = await getAll("wrongItems");
   const uniqueNoteIds = [...new Set(rawWrongItems.map((item) => item.noteId).filter(Boolean))];
   const notes = (await Promise.all(uniqueNoteIds.map(id => get("notes", id)))).filter(Boolean).sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
@@ -227,6 +231,8 @@ export async function renderWrongBookPage(container, app) {
       if (details) details.open = true;
     });
   });
+
+  setupWrongBookMath(container);
 }
 
 function readFilters(query) {
@@ -332,6 +338,31 @@ function renderWrongItem(item, note) {
       </details>
     </article>
   `;
+}
+
+function setupWrongBookMath(container) {
+  const cards = [...container.querySelectorAll("[data-wrong-card]")];
+  const stopObserving = observeMathInView(cards, {
+    batchSize: 4,
+    rootMargin: "420px 0px"
+  });
+  const detailsHandlers = [];
+
+  container.querySelectorAll("[data-wrong-details]").forEach((details) => {
+    const handler = () => {
+      if (details.open) {
+        typesetMath(details, { batchSize: 4 });
+      }
+    };
+    details.addEventListener("toggle", handler);
+    detailsHandlers.push([details, handler]);
+  });
+
+  cleanupWrongBookMath = () => {
+    stopObserving?.();
+    detailsHandlers.forEach(([details, handler]) => details.removeEventListener("toggle", handler));
+    cleanupWrongBookMath = null;
+  };
 }
 
 function renderMistakeMetric(value, label, tone = "") {

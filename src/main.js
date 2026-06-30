@@ -187,7 +187,9 @@ async function renderApp() {
     } catch (error) {
       pageContainer.innerHTML = `<div class="error-state"><h1>页面加载失败</h1><p>${error.message}</p></div>`;
     }
-    typesetMath(pageContainer);
+    if (pageContainer.dataset.mathManaged !== "true") {
+      typesetMath(pageContainer);
+    }
   } catch (error) {
     appRoot.innerHTML = `<main class="page standalone-error"><div class="error-state"><h1>页面加载失败</h1><p>${error.message}</p></div></main>`;
   } finally {

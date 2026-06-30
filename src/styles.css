@@ -2502,6 +2502,43 @@ textarea {
   padding: 8px 0;
 }
 
+.math-source {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: visible;
+  vertical-align: middle;
+  -webkit-overflow-scrolling: touch;
+}
+
+.math-source.math-inline {
+  display: inline-flex;
+  align-items: center;
+  margin-inline: 1px;
+}
+
+.math-source.math-display {
+  display: block;
+  width: 100%;
+  margin: 10px 0;
+  padding: 4px 0;
+}
+
+.math-source svg {
+  display: inline-block;
+  max-width: none;
+  overflow: visible;
+}
+
+.math-source.math-display svg {
+  display: block;
+}
+
+.math-render-pending,
+.math-render-retryable {
+  color: var(--text);
+}
+
 .math-render-fallback {
   color: var(--text);
   background: rgba(31, 122, 84, 0.08);

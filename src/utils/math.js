@@ -1,41 +1,61 @@
+import { createMathCacheKey, getCachedMathSvg, saveCachedMathSvg } from "../services/mathRenderCache.js";
+
 const MATHJAX_URLS = [
-  "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js",
-  "https://unpkg.com/mathjax@3/es5/tex-chtml.js"
+  "/vendor/mathjax/tex-svg.js",
+  "/node_modules/mathjax/es5/tex-svg.js"
 ];
-const TYPESET_TIMEOUT_MS = 4500;
+const DEV_MATHJAX_URLS = [
+  "/node_modules/mathjax/es5/tex-svg.js",
+  "/vendor/mathjax/tex-svg.js"
+];
+const DEFAULT_BATCH_SIZE = 8;
+const DEFAULT_ROOT_MARGIN = "360px 0px";
 
 let mathJaxPromise = null;
 
 export function hasMathText(root) {
   const text = root?.textContent || "";
-  return (
-    text.includes("$$") ||
-    text.includes("\\(") ||
-    text.includes("\\[") ||
-    /\\(?:bra|ket|braket|Bra|Ket|Braket)\s*\{/.test(text) ||
-    /\$[^$\n]+\$/.test(text)
-  );
+  return looksLikeMathSource(text) || /\\(?:bra|ket|braket|Bra|Ket|Braket)\s*\{/.test(text);
 }
 
-export async function typesetMath(root = document.body) {
+export async function typesetMath(root = document.body, options = {}) {
   if (!root || !hasMathText(root)) return;
 
-  try {
-    prepareMathFallbacks(root);
-    await ensureMathJax();
-    if (window.MathJax?.typesetClear) {
-      window.MathJax.typesetClear([root]);
-    }
-    await withTimeout(window.MathJax?.typesetPromise?.([root]), TYPESET_TIMEOUT_MS);
-  } catch (error) {
-    console.warn("MathJax 加载或渲染失败，保留原始 LaTeX 文本。", error);
-  } finally {
-    recoverMathErrors(root);
-    recoverUnprocessedMathSources(root);
-  }
+  prepareMathPlaceholders(root);
+  const nodes = getPendingMathNodes(root);
+  if (!nodes.length) return;
+
+  await renderMathNodes(nodes, options);
 }
 
-function prepareMathFallbacks(root) {
+export function observeMathInView(targets, options = {}) {
+  const elements = Array.from(targets || []).filter(Boolean);
+  if (!elements.length) return () => {};
+
+  if (!("IntersectionObserver" in window)) {
+    elements.forEach((element) => {
+      typesetMath(element, options);
+    });
+    return () => {};
+  }
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      observer.unobserve(entry.target);
+      typesetMath(entry.target, options);
+    });
+  }, {
+    root: options.root || null,
+    rootMargin: options.rootMargin || DEFAULT_ROOT_MARGIN,
+    threshold: 0.01
+  });
+
+  elements.forEach((element) => observer.observe(element));
+  return () => observer.disconnect();
+}
+
+function prepareMathPlaceholders(root) {
   if (!root?.ownerDocument) return;
 
   const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
@@ -43,6 +63,7 @@ function prepareMathFallbacks(root) {
       const text = node.nodeValue || "";
       if (!looksLikeMathSource(text)) return NodeFilter.FILTER_REJECT;
       if (isInsideMathSkip(node.parentElement)) return NodeFilter.FILTER_REJECT;
+      if (isHiddenForMath(node.parentElement)) return NodeFilter.FILTER_REJECT;
       return NodeFilter.FILTER_ACCEPT;
     }
   });
@@ -57,11 +78,7 @@ function prepareMathFallbacks(root) {
     const fragment = root.ownerDocument.createDocumentFragment();
     parts.forEach((part) => {
       if (part.math) {
-        const span = root.ownerDocument.createElement("span");
-        span.className = "math-source";
-        span.dataset.mathSource = part.text;
-        span.textContent = part.text;
-        fragment.appendChild(span);
+        fragment.appendChild(createMathNode(root.ownerDocument, part.text));
       } else if (part.text) {
         fragment.appendChild(root.ownerDocument.createTextNode(part.text));
       }
@@ -70,31 +87,84 @@ function prepareMathFallbacks(root) {
   });
 }
 
-function recoverMathErrors(root) {
-  if (!root?.querySelectorAll) return;
-  root.querySelectorAll("mjx-merror, merror").forEach((errorNode) => {
-    const sourceNode = errorNode.closest?.("[data-math-source]");
-    if (!sourceNode || sourceNode.dataset.mathRecovered === "true") return;
-
-    applyMathFallback(sourceNode);
-  });
+function createMathNode(documentRef, source) {
+  const parsed = parseMathSource(source);
+  const span = documentRef.createElement("span");
+  span.className = `math-source ${parsed.display ? "math-display" : "math-inline"}`;
+  span.dataset.mathSource = source;
+  span.dataset.mathTex = parsed.tex;
+  span.dataset.mathDisplay = String(parsed.display);
+  span.textContent = source;
+  return span;
 }
 
-function recoverUnprocessedMathSources(root) {
-  if (!root?.querySelectorAll) return;
-  root.querySelectorAll("[data-math-source]").forEach((sourceNode) => {
-    if (sourceNode.dataset.mathRecovered === "true") return;
-    if (sourceNode.querySelector("mjx-container")) return;
-    if (!looksLikeMathSource(sourceNode.textContent || "")) return;
-    applyMathFallback(sourceNode);
-  });
+function getPendingMathNodes(root) {
+  return Array.from(root.querySelectorAll("[data-math-source]"))
+    .filter((node) => !node.dataset.mathRendered)
+    .filter((node) => !isHiddenForMath(node));
 }
 
-function applyMathFallback(sourceNode) {
-  sourceNode.dataset.mathRecovered = "true";
-  sourceNode.classList.add("math-render-fallback");
-  sourceNode.setAttribute("title", "这段公式没有成功渲染，已显示原始 LaTeX。");
-  sourceNode.textContent = sourceNode.dataset.mathSource || sourceNode.textContent || "";
+async function renderMathNodes(nodes, options = {}) {
+  const batchSize = Math.max(1, Number(options.batchSize || DEFAULT_BATCH_SIZE));
+  for (let index = 0; index < nodes.length; index += batchSize) {
+    const batch = nodes.slice(index, index + batchSize);
+    await Promise.all(batch.map((node) => renderMathNode(node)));
+    if (index + batchSize < nodes.length) {
+      await waitForIdle();
+    }
+  }
+}
+
+async function renderMathNode(node) {
+  if (!node?.isConnected || node.dataset.mathRendered === "true") return;
+
+  const source = node.dataset.mathSource || node.textContent || "";
+  const tex = node.dataset.mathTex || parseMathSource(source).tex;
+  const display = node.dataset.mathDisplay === "true";
+  if (!tex.trim()) return;
+
+  try {
+    node.classList.add("math-render-pending");
+    const key = await createMathCacheKey({ tex, display });
+    const cachedSvg = await getCachedMathSvg(key);
+    if (cachedSvg) {
+      applyRenderedSvg(node, cachedSvg);
+      return;
+    }
+
+    const svg = await renderTexToSvg({ tex, display });
+    applyRenderedSvg(node, svg);
+    await saveCachedMathSvg({ key, source, tex, display, svg });
+  } catch (error) {
+    node.dataset.mathRenderError = error.message || "公式渲染失败";
+    node.classList.remove("math-render-pending");
+    node.classList.add("math-render-retryable");
+    node.setAttribute("title", "公式暂未渲染成功，滚动或重新打开页面时会重试。");
+    console.warn("公式渲染失败，保留原始 LaTeX 文本。", error);
+  }
+}
+
+async function renderTexToSvg({ tex, display }) {
+  const mathJax = await ensureMathJax();
+  if (!mathJax?.tex2svgPromise) {
+    throw new Error("MathJax SVG 渲染器不可用");
+  }
+
+  const container = await mathJax.tex2svgPromise(tex, { display });
+  const svg = container.querySelector("svg");
+  if (!svg) throw new Error("MathJax 未返回 SVG");
+
+  svg.setAttribute("aria-hidden", "true");
+  svg.removeAttribute("focusable");
+  return svg.outerHTML;
+}
+
+function applyRenderedSvg(node, svg) {
+  node.innerHTML = svg;
+  node.dataset.mathRendered = "true";
+  delete node.dataset.mathRenderError;
+  node.classList.remove("math-render-pending", "math-render-retryable");
+  node.classList.add("math-rendered");
 }
 
 function isInsideMathSkip(element) {
@@ -105,9 +175,23 @@ function isInsideMathSkip(element) {
     ) {
       return true;
     }
-    if (current.matches?.("mjx-container, [data-math-source], .math-render-fallback")) return true;
+    if (current.matches?.("svg, mjx-container, [data-math-source]")) return true;
   }
   return false;
+}
+
+function isHiddenForMath(element) {
+  for (let current = element; current; current = current.parentElement) {
+    if (current.hidden || current.getAttribute?.("aria-hidden") === "true") return true;
+    const tag = current.tagName?.toLowerCase();
+    if (tag === "details" && !current.open && !isInsideDetailsSummary(element, current)) return true;
+  }
+  return false;
+}
+
+function isInsideDetailsSummary(element, details) {
+  const summary = Array.from(details.children || []).find((child) => child.tagName?.toLowerCase() === "summary");
+  return Boolean(summary?.contains(element));
 }
 
 function splitMathSource(text) {
@@ -144,6 +228,23 @@ function splitMathSource(text) {
   return parts;
 }
 
+function parseMathSource(source) {
+  const text = String(source || "");
+  if (text.startsWith("\\[") && text.endsWith("\\]")) {
+    return { tex: text.slice(2, -2), display: true };
+  }
+  if (text.startsWith("$$") && text.endsWith("$$")) {
+    return { tex: text.slice(2, -2), display: true };
+  }
+  if (text.startsWith("\\(") && text.endsWith("\\)")) {
+    return { tex: text.slice(2, -2), display: false };
+  }
+  if (text.startsWith("$") && text.endsWith("$")) {
+    return { tex: text.slice(1, -1), display: false };
+  }
+  return { tex: text, display: false };
+}
+
 function looksLikeMathSource(text) {
   return (
     text.includes("$$") ||
@@ -160,18 +261,16 @@ function isLikelyMathExpression(source) {
   return /\\[a-zA-Z]+|[_^{}=+\-*/<>]|[A-Za-z]\s*\(|\d/.test(body);
 }
 
-function withTimeout(promise, timeoutMs) {
-  if (!promise) return Promise.resolve();
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => {
-      window.setTimeout(() => reject(new Error("MathJax 渲染超时")), timeoutMs);
-    })
-  ]);
+async function waitForIdle() {
+  if ("requestIdleCallback" in window) {
+    await new Promise((resolve) => window.requestIdleCallback(resolve, { timeout: 250 }));
+    return;
+  }
+  await new Promise((resolve) => window.setTimeout(resolve, 16));
 }
 
 function ensureMathJax() {
-  if (window.MathJax?.typesetPromise) return Promise.resolve(window.MathJax);
+  if (window.MathJax?.tex2svgPromise) return Promise.resolve(window.MathJax);
   if (mathJaxPromise) return mathJaxPromise;
 
   window.MathJax = {
@@ -199,16 +298,23 @@ function ensureMathJax() {
         norm: ["\\left\\lVert #1 \\right\\rVert", 1]
       }
     },
-    options: {
-      skipHtmlTags: ["script", "noscript", "style", "textarea", "pre", "code"]
+    svg: {
+      fontCache: "local"
     },
     startup: {
       typeset: false
     }
   };
 
-  mathJaxPromise = loadFirstAvailableScript(MATHJAX_URLS).then(() => window.MathJax);
+  mathJaxPromise = loadFirstAvailableScript(getMathJaxUrls()).then(async () => {
+    await window.MathJax?.startup?.promise;
+    return window.MathJax;
+  });
   return mathJaxPromise;
+}
+
+function getMathJaxUrls() {
+  return ["5173", "4173"].includes(window.location.port) ? DEV_MATHJAX_URLS : MATHJAX_URLS;
 }
 
 async function loadFirstAvailableScript(urls) {
@@ -221,13 +327,17 @@ async function loadFirstAvailableScript(urls) {
       lastError = error;
     }
   }
-  throw lastError || new Error("无法加载 MathJax");
+  throw lastError || new Error("无法加载本地 MathJax");
 }
 
 function loadScript(src) {
   return new Promise((resolve, reject) => {
     const existing = document.querySelector(`script[src="${src}"]`);
     if (existing) {
+      if (window.MathJax?.tex2svgPromise) {
+        resolve();
+        return;
+      }
       existing.addEventListener("load", resolve, { once: true });
       existing.addEventListener("error", reject, { once: true });
       return;

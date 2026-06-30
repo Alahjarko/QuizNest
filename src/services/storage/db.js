@@ -1,5 +1,5 @@
 const DB_NAME = "ai-study-assistant-db";
-const DB_VERSION = 7;
+const DB_VERSION = 8;
 const SETTINGS_ID = "default";
 
 let dbPromise;
@@ -128,6 +128,10 @@ export function openDb() {
       ensureIndex(reviewLogs, "wrongItemId", "wrongItemId");
       ensureIndex(reviewLogs, "knowledgePointId", "knowledgePointId");
       ensureIndex(reviewLogs, "reviewedAt", "reviewedAt");
+
+      const mathRenderCache = getOrCreateStore(db, tx, "mathRenderCache");
+      ensureIndex(mathRenderCache, "rendererVersion", "rendererVersion");
+      ensureIndex(mathRenderCache, "updatedAt", "updatedAt");
     };
 
     request.onsuccess = () => resolve(request.result);
@@ -194,6 +198,16 @@ export async function removeMany(storeName, ids) {
   if (toUpdate.length > 0) {
     await putMany(storeName, toUpdate);
   }
+}
+
+export async function deleteHard(storeName, id) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readwrite");
+    tx.objectStore(storeName).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error("删除失败"));
+  });
 }
 
 export async function getByIndex(storeName, indexName, value, includeDeleted = false) {
