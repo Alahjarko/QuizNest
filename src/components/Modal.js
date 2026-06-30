@@ -1,11 +1,11 @@
 import { typesetMath } from "../utils/math.js";
 
-export function openModal({ title, content, width = "640px" }) {
+export function openModal({ title, content, width = "640px", className = "" }) {
   const backdrop = document.createElement("div");
   backdrop.className = "modal-backdrop";
 
   const dialog = document.createElement("section");
-  dialog.className = "modal";
+  dialog.className = "modal" + (className ? " " + className : "");
   dialog.style.maxWidth = width;
   dialog.setAttribute("role", "dialog");
   dialog.setAttribute("aria-modal", "true");

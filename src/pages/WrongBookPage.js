@@ -544,7 +544,7 @@ async function openReviewModal(item, app) {
       ? renderChoiceReview(question)
       : renderSubjectiveReview(question);
 
-  const modal = openModal({ title: "重新练习", content, width: "720px" });
+  const modal = openModal({ title: "重新练习", content, width: "720px", className: "review-modal" });
 
   if (question.type === "choice") {
     bindChoiceReview(modal, item, question, app);

@@ -80,6 +80,11 @@ export async function renderPracticePage(container, app, setId) {
           .map((question, index) => renderQuestionNavItem(question, index, currentIndex, answersByQuestion, canOpenIndex(index, questions, answersByQuestion)))
           .join("")}
       </aside>
+      <div class="practice-question-strip" aria-label="题号导航" data-practice-strip>
+        ${questions
+          .map((question, index) => renderQuestionNavItem(question, index, currentIndex, answersByQuestion, canOpenIndex(index, questions, answersByQuestion)))
+          .join("")}
+      </div>
       <article class="question-panel">
         <div class="question-meta">
           <span>第 ${currentIndex + 1} / ${questions.length} 题</span>

@@ -20,6 +20,35 @@ export const SIDEBAR_NAV_ITEMS = [
   { path: "/stats", label: "统计", icon: "chart", match: (segments) => segments[0] === "stats" }
 ];
 
+// 手机端底部 tab：仅这四项是一级目的地，其余功能进中心 + 动作表或头像菜单。
+export const MOBILE_NAV_ITEMS = [
+  { path: "/", label: "首页", icon: "home", match: (segments) => segments.length === 0 },
+  { path: "/wrong", label: "错题本", icon: "circle-alert", match: (segments) => segments[0] === "wrong" },
+  { path: "/sets", label: "题组库", icon: "library", match: (segments) => segments[0] === "sets" || segments[0] === "practice" },
+  { path: "/chat", label: "解惑", icon: "message-circle", match: (segments) => segments[0] === "chat" }
+];
+
+// 中心 + 动作表项：上传 md / 从笔记出题 / 笔记本 / PDF 导入 / PPT 导入。
+// 注意：上传 .md 当前导航到首页（首页有上传按钮），后续 Phase 2 再做成 FAB 直接触发。
+const MOBILE_FAB_ACTIONS = [
+  { path: "/", label: "上传 .md 笔记", icon: "upload" },
+  { path: "/notebooks", label: "从笔记生成题组", icon: "book-open" },
+  { path: "/notebooks", label: "笔记本", icon: "folder" },
+  { path: "/pdf-note", label: "导入 PDF", icon: "file-text" },
+  { path: "/pdf-note", label: "导入 PPT", icon: "presentation" }
+];
+
+// 判断路由是否为手机底部 tab 的一级页面（用于决定顶部栏显示头像还是返回按钮）。
+function isMobileMainTabRoute(route) {
+  // 仅 4 个一级 tab 路由算"主 tab"（显示头像、隐藏返回按钮）。
+  // /practice/:id、/note/:id、/notebooks、/pdf-note、/stats、/settings 等子页都算子页（显示返回按钮）。
+  // 题组库 tab 在 /practice/:id 下仍高亮，靠 renderMobileNavItem 的 match（含 practice）独立判断。
+  const seg = route.segments;
+  if (seg.length === 0) return true;
+  if (seg.length === 1 && (seg[0] === "wrong" || seg[0] === "sets" || seg[0] === "chat")) return true;
+  return false;
+}
+
 export async function getAppLayoutData() {
   const [notes, notebooks, profile] = await Promise.all([getAll("notes"), getAll("notebooks"), getProfile()]);
   return {
@@ -37,8 +66,12 @@ export function renderAppLayout({ route, title, notes, notebooks = [], profile }
   const notebookGroups = buildNotebookGroups(notes, notebooks, route, readSidebarNotebookState());
   const sidebarMode = readSidebarMode();
   const sidebarCollapsed = sidebarMode === SIDEBAR_MODE_COLLAPSED;
+  const isMainTab = isMobileMainTabRoute(route);
+  const mobileNavLeft = MOBILE_NAV_ITEMS.slice(0, 2).map((item) => renderMobileNavItem(item, route)).join("");
+  const mobileNavRight = MOBILE_NAV_ITEMS.slice(2).map((item) => renderMobileNavItem(item, route)).join("");
+  const mobileFabHtml = MOBILE_FAB_ACTIONS.map(renderMobileFabAction).join("");
   return `
-    <div class="app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}" data-sidebar-mode="${sidebarMode}">
+    <div class="app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}" data-sidebar-mode="${sidebarMode}" data-route="${route.segments[0] || "home"}">
       <aside class="app-sidebar" id="app-sidebar" aria-label="QuizNest 导航">
         <div class="sidebar-brand-block">
           <button class="sidebar-brand" data-nav="/" type="button" aria-label="返回首页">
@@ -88,6 +121,15 @@ export function renderAppLayout({ route, title, notes, notebooks = [], profile }
       </aside>
 
       <section class="app-main">
+        <header class="mobile-top-bar" role="banner">
+          <button class="mobile-avatar-button" type="button" data-mobile-avatar-toggle aria-label="个人资料与设置" title="个人资料与设置" ${isMainTab ? "" : "hidden"}>
+            <span class="mobile-avatar">${renderProfileAvatar(profile)}</span>
+          </button>
+          <button class="mobile-back-button" type="button" data-mobile-back aria-label="返回" title="返回" ${isMainTab ? "hidden" : ""}>
+            ${icon("chevron-left")}
+          </button>
+          <h1 class="mobile-page-title">${escapeHtml(title)}</h1>
+        </header>
         <header class="app-content-header">
           <button
             class="sidebar-collapse-button"
@@ -109,6 +151,30 @@ export function renderAppLayout({ route, title, notes, notebooks = [], profile }
           <div class="loading">正在加载...</div>
         </main>
       </section>
+
+      <div class="mobile-avatar-menu" data-mobile-avatar-menu hidden role="menu" aria-label="个人资料与设置">
+        <button type="button" data-nav="/stats" role="menuitem">
+          ${icon("chart")}
+          <span>统计</span>
+        </button>
+        <button type="button" data-nav="/settings" role="menuitem">
+          ${icon("settings")}
+          <span>设置</span>
+        </button>
+      </div>
+
+      <nav class="mobile-bottom-nav" aria-label="主导航">
+        ${mobileNavLeft}
+        <button class="mobile-fab-button" type="button" data-mobile-fab-toggle aria-label="更多操作" title="更多操作">
+          ${icon("plus")}
+        </button>
+        ${mobileNavRight}
+      </nav>
+
+      <div class="mobile-fab-sheet" data-mobile-fab-sheet hidden role="dialog" aria-label="更多操作">
+        <div class="mobile-fab-sheet-handle" aria-hidden="true"></div>
+        ${mobileFabHtml}
+      </div>
     </div>
   `;
 }
@@ -179,6 +245,48 @@ export function bindAppLayout(root, { navigate }) {
     else closeMenu();
   };
 
+  // 手机端：中心 + 动作表、头像菜单、返回按钮。仅 ≤760px 渲染，大屏这些元素 CSS 隐藏不参与交互。
+  const fabToggle = root.querySelector("[data-mobile-fab-toggle]");
+  const fabSheet = root.querySelector("[data-mobile-fab-sheet]");
+  const avatarToggle = root.querySelector("[data-mobile-avatar-toggle]");
+  const avatarMenu = root.querySelector("[data-mobile-avatar-menu]");
+  const backButton = root.querySelector("[data-mobile-back]");
+
+  const closeMobileMenus = () => {
+    if (fabSheet) fabSheet.hidden = true;
+    if (fabToggle) fabToggle.setAttribute("aria-expanded", "false");
+    if (avatarMenu) avatarMenu.hidden = true;
+    if (avatarToggle) avatarToggle.setAttribute("aria-expanded", "false");
+  };
+
+  const openFabSheet = () => {
+    if (!fabSheet || !fabToggle) return;
+    if (avatarMenu) avatarMenu.hidden = true;
+    if (avatarToggle) avatarToggle.setAttribute("aria-expanded", "false");
+    fabSheet.hidden = false;
+    fabToggle.setAttribute("aria-expanded", "true");
+  };
+
+  const openAvatarMenu = () => {
+    if (!avatarMenu || !avatarToggle) return;
+    if (fabSheet) fabSheet.hidden = true;
+    if (fabToggle) fabToggle.setAttribute("aria-expanded", "false");
+    avatarMenu.hidden = false;
+    avatarToggle.setAttribute("aria-expanded", "true");
+  };
+
+  const toggleFabSheet = () => {
+    if (!fabSheet) return;
+    if (fabSheet.hidden) openFabSheet();
+    else closeMobileMenus();
+  };
+
+  const toggleAvatarMenu = () => {
+    if (!avatarMenu) return;
+    if (avatarMenu.hidden) openAvatarMenu();
+    else closeMobileMenus();
+  };
+
   const hideTooltip = () => {
     if (!tooltip) return;
     tooltip.hidden = true;
@@ -220,6 +328,7 @@ export function bindAppLayout(root, { navigate }) {
   root.querySelectorAll("[data-nav]").forEach((button) => {
     button.addEventListener("click", () => {
       closeMenu();
+      closeMobileMenus();
       navigate(button.dataset.nav);
     });
   });
@@ -227,6 +336,22 @@ export function bindAppLayout(root, { navigate }) {
   toggle?.addEventListener("click", (event) => {
     event.stopPropagation();
     toggleMenu();
+  });
+
+  fabToggle?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleFabSheet();
+  });
+
+  avatarToggle?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleAvatarMenu();
+  });
+
+  backButton?.addEventListener("click", () => {
+    // 优先 hash 回退；若无历史则回首页，避免停在子页面无法返回。
+    if (window.history.length > 1) window.history.back();
+    else navigate("/");
   });
 
   collapseToggle?.addEventListener("click", () => {
@@ -243,10 +368,17 @@ export function bindAppLayout(root, { navigate }) {
   const onDocumentPointerDown = (event) => {
     const footer = root.querySelector(".sidebar-footer");
     if (!footer?.contains(event.target) && !menu?.contains(event.target)) closeMenu();
+    // 手机端：点 + 动作表/头像菜单外部时关闭
+    const inFab = fabToggle?.contains(event.target) || fabSheet?.contains(event.target);
+    const inAvatar = avatarToggle?.contains(event.target) || avatarMenu?.contains(event.target);
+    if (!inFab && !inAvatar) closeMobileMenus();
   };
 
   const onDocumentKeydown = (event) => {
-    if (event.key === "Escape") closeMenu();
+    if (event.key === "Escape") {
+      closeMenu();
+      closeMobileMenus();
+    }
   };
 
   const onNotebookToggle = (event) => {
@@ -261,6 +393,7 @@ export function bindAppLayout(root, { navigate }) {
   document.addEventListener("pointerdown", onDocumentPointerDown);
   document.addEventListener("keydown", onDocumentKeydown);
   window.addEventListener("resize", closeMenu);
+  window.addEventListener("resize", closeMobileMenus);
   cleanupLayoutEvents = () => {
     if (menu?.dataset.sidebarMenuFloating === "true") menu.remove();
     tooltipSources.forEach((source) => {
@@ -273,6 +406,7 @@ export function bindAppLayout(root, { navigate }) {
     document.removeEventListener("pointerdown", onDocumentPointerDown);
     document.removeEventListener("keydown", onDocumentKeydown);
     window.removeEventListener("resize", closeMenu);
+    window.removeEventListener("resize", closeMobileMenus);
   };
 }
 
@@ -282,6 +416,25 @@ function renderNavItem(item, route) {
     <button class="sidebar-nav-item ${active ? "active" : ""}" data-nav="${item.path}" data-sidebar-tooltip-label="${escapeHtml(item.label)}" type="button" aria-label="${escapeHtml(item.label)}" title="${escapeHtml(item.label)}" ${active ? 'aria-current="page"' : ""}>
       ${icon(item.icon)}
       <span>${escapeHtml(item.label)}</span>
+    </button>
+  `;
+}
+
+function renderMobileNavItem(item, route) {
+  const active = item.match(route.segments);
+  return `
+    <button class="mobile-nav-item ${active ? "active" : ""}" data-nav="${item.path}" type="button" aria-label="${escapeHtml(item.label)}" title="${escapeHtml(item.label)}" ${active ? 'aria-current="page"' : ""}>
+      ${icon(item.icon)}
+      <span>${escapeHtml(item.label)}</span>
+    </button>
+  `;
+}
+
+function renderMobileFabAction(action) {
+  return `
+    <button class="mobile-fab-action" type="button" data-nav="${action.path}">
+      <span class="mobile-fab-action-icon">${icon(action.icon)}</span>
+      <span class="mobile-fab-action-label">${escapeHtml(action.label)}</span>
     </button>
   `;
 }
@@ -434,7 +587,11 @@ function icon(name) {
     "chevron-up": `<path d="m18 15-6-6-6 6"/>`,
     "chevron-right": `<path d="m9 18 6-6-6-6"/>`,
     "panel-left-close": `<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/>`,
-    "panel-left-open": `<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m13 9 3 3-3 3"/>`
+    "panel-left-open": `<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m13 9 3 3-3 3"/>`,
+    "plus": `<path d="M12 5v14"/><path d="M5 12h14"/>`,
+    "chevron-left": `<path d="m15 18-6-6 6-6"/>`,
+    "upload": `<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>`,
+    "presentation": `<path d="M12 16v5"/><path d="M9 21h6"/><path d="M3 7h18"/><path d="M5 7v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7"/><path d="M8 11h.01"/><path d="M12 11h.01"/><path d="M16 11h.01"/>`
   };
 
   return `<svg class="lucide-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${paths[name] || ""}</svg>`;

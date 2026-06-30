@@ -3620,6 +3620,20 @@ textarea {
     max-height: 38vh;
   }
 
+  /* 笔记阅读器：单列 + 正文优先（大纲在正文下方）+ 允许 track 缩到 0 避免溢出 */
+  .reader-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .reader-layout > .markdown-body {
+    order: -1;
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+  .reader-layout > .section-list {
+    min-width: 0;
+  }
+
   .pdf-note-guide {
     position: static;
   }
@@ -6777,4 +6791,396 @@ textarea {
 
 .drawer-toggle-btn:hover {
   background: var(--accent-soft);
+}
+
+/* === 手机端适配（≤760px）=========================================
+   所有手机专属元素默认 display:none，仅 ≤760px 显示。
+   大屏（>760px，含平板/PC/Mac）零影响：这些元素不渲染、不占位、不响应。
+   详见 memory/phone_adaptation_spec.md 与 small_screen_no_large_impact.md。
+=================================================================== */
+
+.mobile-top-bar,
+.mobile-bottom-nav,
+.mobile-fab-sheet,
+.mobile-avatar-menu {
+  display: none;
+}
+
+/* 题号条默认隐藏，仅手机练习页显示 */
+.practice-question-strip {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  /* 隐藏桌面侧栏与桌面顶部 header，由手机顶部栏 + 底部 tab 取代 */
+  .app-sidebar,
+  .app-content-header {
+    display: none;
+  }
+
+  .app-shell {
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
+
+  .app-main {
+    height: auto;
+    min-height: 60vh;
+    overflow: visible;
+    /* 为固定吸顶的顶部栏与固定吸底的底部 tab 留白，避免内容被遮挡 */
+    padding-top: calc(52px + env(safe-area-inset-top));
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+
+  .page {
+    width: min(100vw - 24px, 1180px);
+    padding-top: 12px;
+  }
+
+  /* 手机顶部栏：头像/返回 + 标题，固定吸顶 */
+  .mobile-top-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    height: calc(52px + env(safe-area-inset-top));
+    padding: 0 12px;
+    padding-top: env(safe-area-inset-top);
+    background: var(--paper);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .mobile-avatar-button,
+  .mobile-back-button {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: var(--paper);
+    color: var(--accent);
+    cursor: pointer;
+  }
+
+  .mobile-avatar-button .mobile-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  .mobile-avatar-button .mobile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .mobile-back-button .lucide-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .mobile-page-title {
+    flex: 1 1 auto;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* 头像菜单（设置/统计）浮层 */
+  .mobile-avatar-menu {
+    display: block;
+    position: fixed;
+    top: calc(52px + env(safe-area-inset-top));
+    left: 12px;
+    z-index: 51;
+    min-width: 160px;
+    padding: 6px;
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  .mobile-avatar-menu[hidden] {
+    display: none;
+  }
+
+  .mobile-avatar-menu button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  .mobile-avatar-menu button:hover,
+  .mobile-avatar-menu button:active {
+    background: var(--accent-soft);
+  }
+
+  .mobile-avatar-menu .lucide-icon {
+    width: 18px;
+    height: 18px;
+    color: var(--accent);
+  }
+
+  /* 底部 tab 栏：4 个一级 tab + 中心 + */
+  .mobile-bottom-nav {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-around;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    height: calc(64px + env(safe-area-inset-bottom));
+    padding: 0 8px;
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--paper);
+    border-top: 1px solid var(--border);
+  }
+
+  .mobile-nav-item {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 6px 2px;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font-size: 11px;
+    cursor: pointer;
+  }
+
+  .mobile-nav-item .lucide-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .mobile-nav-item.active {
+    color: var(--accent);
+  }
+
+  /* 中心 + 按钮：略凸起的圆角矩形 */
+  .mobile-fab-button {
+    flex: 0 0 auto;
+    width: 52px;
+    height: 52px;
+    margin-top: -18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+    box-shadow: var(--shadow-card);
+  }
+
+  .mobile-fab-button .lucide-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* + 动作表：底部抽屉 */
+  .mobile-fab-sheet {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    position: fixed;
+    bottom: calc(64px + env(safe-area-inset-bottom));
+    left: 8px;
+    right: 8px;
+    z-index: 51;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 8px;
+    padding-top: 20px;
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-floating);
+  }
+
+  .mobile-fab-sheet[hidden] {
+    display: none;
+  }
+
+  .mobile-fab-sheet-handle {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+  }
+
+  .mobile-fab-action {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 14px;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--text);
+    font-size: 15px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .mobile-fab-action:hover,
+  .mobile-fab-action:active {
+    background: var(--accent-soft);
+  }
+
+  .mobile-fab-action-icon {
+    display: inline-flex;
+    color: var(--accent);
+  }
+
+  .mobile-fab-action-icon .lucide-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* 尊重 prefers-reduced-motion：禁用所有手机端过渡 */
+  @media (prefers-reduced-motion: reduce) {
+    .mobile-top-bar,
+    .mobile-bottom-nav,
+    .mobile-fab-sheet,
+    .mobile-avatar-menu,
+    .mobile-fab-button {
+      transition: none;
+    }
+  }
+
+  /* === 练习页：手机端单栏 + 底部题号条 ===
+     - 隐藏桌面侧栏 question-nav（保留 DOM，按钮仍可被点击绑定但不可见）
+     - 练习页底部用题号条取代手机 tab 栏（避免两栏打架）
+     - practice-layout 切单列，让题目面板占满宽度
+     - 题号条固定吸底、横向滚动，复用 question-nav-item 状态色
+  */
+  .app-shell[data-route="practice"] .mobile-bottom-nav {
+    display: none;
+  }
+
+  .app-shell[data-route="practice"] .app-main {
+    /* 练习页无底部 tab，仅留题号条高度 */
+    padding-bottom: calc(56px + env(safe-area-inset-bottom));
+  }
+
+  .practice-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .question-nav {
+    display: none;
+  }
+
+  .practice-question-strip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    height: calc(56px + env(safe-area-inset-bottom));
+    padding: 6px 10px calc(6px + env(safe-area-inset-bottom));
+    background: var(--paper);
+    border-top: 1px solid var(--border);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .practice-question-strip .question-nav-item {
+    flex: 0 0 auto;
+    min-width: 42px;
+    min-height: 40px;
+    font-size: 14px;
+  }
+
+  .practice-question-strip .question-nav-item small {
+    display: none;
+  }
+
+  .question-panel {
+    padding: 14px;
+  }
+
+  /* === 错题本 review Modal：手机接近全屏 + safe-area ===
+     桌面 720px Modal 维度不变（class 默认无规则），仅 ≤760px 撑满。
+     !important 用于覆盖 openModal 设置的 inline maxWidth:720px。
+  */
+  .review-modal {
+    max-width: 100vw !important;
+    width: 100vw;
+    margin: 0;
+    border-radius: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .review-modal .modal-header {
+    padding-top: calc(16px + env(safe-area-inset-top));
+    flex: 0 0 auto;
+  }
+
+  .review-modal .modal-body {
+    padding-bottom: calc(18px + env(safe-area-inset-bottom));
+    flex: 1 1 auto;
+    overflow-y: auto;
+  }
+
+  /* === 解惑 chat 工具栏：隐藏桌面快捷键提示，工具区取可用空间 ===
+     桌面 "Enter 发送，Cmd/Ctrl+Enter 换行" nowrap 提示在手机上挤占宽度，
+     把"选择内容/学习新知识"按钮压成 77px 竖条导致文字竖排溢出。
+     手机键盘自带 Enter，提示无意义，隐藏即可。桌面规则不变。
+  */
+  .chat-shortcut-hint {
+    display: none;
+  }
+  .chat-input-tools {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
 }
