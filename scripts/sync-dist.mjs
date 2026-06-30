@@ -50,11 +50,18 @@ if (fs.existsSync(pptxSvgDistDir)) {
 }
 
 // MathJax：本地公式渲染运行时，避免 Tauri WebView 依赖 CDN。
-// 运行时优先加载 /vendor/mathjax/tex-svg.js；开发环境可回退到 /node_modules。
+// 运行时优先加载 /vendor/mathjax/tex-svg-full.js；开发环境可回退到 /node_modules。
+// 用 full 版而非 tex-svg.js：full 版内置 boldsymbol/ams/physics 等 tex 扩展实现，
+// 不依赖 autoload 运行时动态加载扩展文件，避免 Tauri 资源协议路径解析问题。
 if (fs.existsSync(mathjaxEs5Dir)) {
   const targetDir = path.join(distVendorDir, "mathjax");
   fs.mkdirSync(targetDir, { recursive: true });
-  fs.copyFileSync(path.join(mathjaxEs5Dir, "tex-svg.js"), path.join(targetDir, "tex-svg.js"));
+  const fullFile = path.join(mathjaxEs5Dir, "tex-svg-full.js");
+  if (fs.existsSync(fullFile)) {
+    fs.copyFileSync(fullFile, path.join(targetDir, "tex-svg-full.js"));
+  } else {
+    fs.copyFileSync(path.join(mathjaxEs5Dir, "tex-svg.js"), path.join(targetDir, "tex-svg.js"));
+  }
 }
 
 console.log("已同步前端文件到 dist/");

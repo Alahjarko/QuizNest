@@ -1,6 +1,6 @@
 import { deleteHard, get, getAll, put } from "./storage/db.js";
 
-export const MATH_RENDERER_VERSION = "mathjax-svg-v1";
+export const MATH_RENDERER_VERSION = "mathjax-svg-v2";
 
 const STORE = "mathRenderCache";
 const MAX_MEMORY_ITEMS = 500;

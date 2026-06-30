@@ -1,12 +1,12 @@
 import { createMathCacheKey, getCachedMathSvg, saveCachedMathSvg } from "../services/mathRenderCache.js";
 
 const MATHJAX_URLS = [
-  "/vendor/mathjax/tex-svg.js",
-  "/node_modules/mathjax/es5/tex-svg.js"
+  "/vendor/mathjax/tex-svg-full.js",
+  "/node_modules/mathjax/es5/tex-svg-full.js"
 ];
 const DEV_MATHJAX_URLS = [
-  "/node_modules/mathjax/es5/tex-svg.js",
-  "/vendor/mathjax/tex-svg.js"
+  "/node_modules/mathjax/es5/tex-svg-full.js",
+  "/vendor/mathjax/tex-svg-full.js"
 ];
 const DEFAULT_BATCH_SIZE = 8;
 const DEFAULT_ROOT_MARGIN = "360px 0px";
@@ -63,7 +63,6 @@ function prepareMathPlaceholders(root) {
       const text = node.nodeValue || "";
       if (!looksLikeMathSource(text)) return NodeFilter.FILTER_REJECT;
       if (isInsideMathSkip(node.parentElement)) return NodeFilter.FILTER_REJECT;
-      if (isHiddenForMath(node.parentElement)) return NodeFilter.FILTER_REJECT;
       return NodeFilter.FILTER_ACCEPT;
     }
   });
@@ -73,7 +72,7 @@ function prepareMathPlaceholders(root) {
 
   textNodes.forEach((node) => {
     const parts = splitMathSource(node.nodeValue || "");
-    if (parts.length <= 1) return;
+    if (!parts.some((part) => part.math)) return;
 
     const fragment = root.ownerDocument.createDocumentFragment();
     parts.forEach((part) => {
@@ -139,7 +138,7 @@ async function renderMathNode(node) {
     node.dataset.mathRenderError = error.message || "公式渲染失败";
     node.classList.remove("math-render-pending");
     node.classList.add("math-render-retryable");
-    node.setAttribute("title", "公式暂未渲染成功，滚动或重新打开页面时会重试。");
+    node.setAttribute("title", `公式暂未渲染成功：${error.message || "未知错误"}`);
     console.warn("公式渲染失败，保留原始 LaTeX 文本。", error);
   }
 }
@@ -150,9 +149,18 @@ async function renderTexToSvg({ tex, display }) {
     throw new Error("MathJax SVG 渲染器不可用");
   }
 
+  // 确保 boldsymbol 扩展已激活（full bundle 内置代码但可能未自动注册）
+  await ensureBoldsymbolPackage(mathJax);
+
   const container = await mathJax.tex2svgPromise(tex, { display });
   const svg = container.querySelector("svg");
   if (!svg) throw new Error("MathJax 未返回 SVG");
+
+  // 检测 merror（未知命令会产生红色错误节点）
+  if (container.querySelector("mjx-merror, merror")) {
+    const errText = container.querySelector("mjx-merror, merror")?.textContent || "";
+    throw new Error(`MathJax 解析错误: ${errText.slice(0, 80)}`);
+  }
 
   svg.setAttribute("aria-hidden", "true");
   svg.removeAttribute("focusable");
@@ -256,9 +264,8 @@ function looksLikeMathSource(text) {
 
 function isLikelyMathExpression(source) {
   if (source.startsWith("\\(") || source.startsWith("\\[") || source.startsWith("$$")) return true;
-  const body = source.slice(1, -1);
-  if (!body.trim()) return false;
-  return /\\[a-zA-Z]+|[_^{}=+\-*/<>]|[A-Za-z]\s*\(|\d/.test(body);
+  const body = source.slice(1, -1).trim();
+  return body.length > 0;
 }
 
 async function waitForIdle() {
@@ -267,6 +274,26 @@ async function waitForIdle() {
     return;
   }
   await new Promise((resolve) => window.setTimeout(resolve, 16));
+}
+
+let boldsymbolChecked = false;
+
+async function ensureBoldsymbolPackage(mathJax) {
+  if (boldsymbolChecked) return;
+  boldsymbolChecked = true;
+
+  const mj = mathJax || window.MathJax;
+  const pkgs = mj?.config?.tex?.packages;
+  if (Array.isArray(pkgs) && pkgs.includes("boldsymbol")) return;
+
+  try {
+    if (mj?.loader?.load) {
+      await mj.loader.load("[tex]/boldsymbol");
+      await mj?.startup?.promise;
+    }
+  } catch (e) {
+    console.warn("boldsymbol 扩展加载失败", e.message);
+  }
 }
 
 function ensureMathJax() {
@@ -285,6 +312,39 @@ function ensureMathJax() {
       ],
       processEscapes: true,
       processEnvironments: true,
+      packages: [
+        "base",
+        "require",
+        "autoload",
+        "ams",
+        "amscd",
+        "bbox",
+        "boldsymbol",
+        "braket",
+        "bussproofs",
+        "cancel",
+        "cases",
+        "centernot",
+        "color",
+        "colortbl",
+        "empheq",
+        "enclose",
+        "extpfeil",
+        "gensymb",
+        "html",
+        "mathtools",
+        "mhchem",
+        "newcommand",
+        "noerrors",
+        "noundefined",
+        "upgreek",
+        "unicode",
+        "verb",
+        "configmacros",
+        "tagformat",
+        "textcomp",
+        "textmacros"
+      ],
       macros: {
         bra: ["\\left\\langle #1 \\right|", 1],
         ket: ["\\left| #1 \\right\\rangle", 1],
