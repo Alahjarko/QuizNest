@@ -76,7 +76,7 @@ function pageTitle(route) {
       "pdf-note": "PDF 笔记",
       wrong: "错题本",
       chat: "解惑",
-      stats: "统计",
+      stats: "统计与个人资料",
       settings: "设置"
     }[first] || "首页"
   );

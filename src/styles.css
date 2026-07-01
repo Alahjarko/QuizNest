@@ -6860,6 +6860,13 @@ textarea {
     flex: 0 0 auto;
     width: 36px;
     height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    max-width: 36px;
+    max-height: 36px;
+    inline-size: 36px;
+    block-size: 36px;
+    aspect-ratio: 1 / 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -6871,8 +6878,16 @@ textarea {
   }
 
   .mobile-avatar-button .mobile-avatar {
+    flex: 0 0 32px;
     width: 32px;
     height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    max-width: 32px;
+    max-height: 32px;
+    inline-size: 32px;
+    block-size: 32px;
+    aspect-ratio: 1 / 1;
     border-radius: 50%;
     overflow: hidden;
     display: inline-flex;
@@ -6884,8 +6899,11 @@ textarea {
   }
 
   .mobile-avatar-button .mobile-avatar img {
+    display: block;
     width: 100%;
     height: 100%;
+    min-width: 100%;
+    min-height: 100%;
     object-fit: cover;
   }
 
@@ -6905,14 +6923,14 @@ textarea {
     white-space: nowrap;
   }
 
-  /* 头像菜单（设置/统计）浮层 */
+  /* 头像菜单（设置/统计与个人资料）浮层 */
   .mobile-avatar-menu {
     display: block;
     position: fixed;
     top: calc(52px + env(safe-area-inset-top));
     left: 12px;
     z-index: 51;
-    min-width: 160px;
+    min-width: 190px;
     padding: 6px;
     background: var(--paper);
     border: 1px solid var(--border);

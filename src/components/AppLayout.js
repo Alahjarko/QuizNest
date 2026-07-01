@@ -17,7 +17,7 @@ export const SIDEBAR_NAV_ITEMS = [
   { path: "/sets", label: "题组库", icon: "library", match: (segments) => segments[0] === "sets" || segments[0] === "practice" },
   { path: "/wrong", label: "错题本", icon: "circle-alert", match: (segments) => segments[0] === "wrong" },
   { path: "/chat", label: "解惑", icon: "message-circle", match: (segments) => segments[0] === "chat" },
-  { path: "/stats", label: "统计", icon: "chart", match: (segments) => segments[0] === "stats" }
+  { path: "/stats", label: "统计与个人资料", icon: "chart", match: (segments) => segments[0] === "stats" }
 ];
 
 // 手机端底部 tab：仅这四项是一级目的地，其余功能进中心 + 动作表或头像菜单。
@@ -101,7 +101,7 @@ export function renderAppLayout({ route, title, notes, notebooks = [], profile }
           <div class="sidebar-settings-menu" data-sidebar-settings-menu hidden>
             <button type="button" data-nav="/stats">
               ${icon("user-round")}
-              <span>个人资料与统计</span>
+              <span>统计与个人资料</span>
             </button>
             <button type="button" data-nav="/settings">
               ${icon("settings")}
@@ -155,7 +155,7 @@ export function renderAppLayout({ route, title, notes, notebooks = [], profile }
       <div class="mobile-avatar-menu" data-mobile-avatar-menu hidden role="menu" aria-label="个人资料与设置">
         <button type="button" data-nav="/stats" role="menuitem">
           ${icon("chart")}
-          <span>统计</span>
+          <span>统计与个人资料</span>
         </button>
         <button type="button" data-nav="/settings" role="menuitem">
           ${icon("settings")}
