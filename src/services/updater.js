@@ -1,9 +1,11 @@
 import { showInteractiveToast, showToast } from "../components/Toast.js";
 
 const GITHUB_REPO = "Alahjarko/QuizNest";
-const LATEST_RELEASE_URL = `https://github.com/${GITHUB_REPO}/releases/latest`;
-const LATEST_RELEASE_API_URL = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
-const UPDATE_CHECK_CACHE_KEY = "quiznest:update-check:v1";
+const UPDATE_MANIFEST_URLS = [
+  `https://raw.githubusercontent.com/${GITHUB_REPO}/main/package.json`,
+  `https://cdn.jsdelivr.net/gh/${GITHUB_REPO}@main/package.json`
+];
+const UPDATE_CHECK_CACHE_KEY = "quiznest:update-check:v2";
 const UPDATE_CHECK_MIN_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 export async function getCurrentAppVersion() {
@@ -41,20 +43,7 @@ export async function checkUpdates(options = {}) {
       }
     }
 
-    const res = await fetch(LATEST_RELEASE_API_URL, {
-      headers: { Accept: "application/vnd.github+json" }
-    });
-    if (!res.ok) {
-      throw new Error(await describeReleaseFetchError(res));
-    }
-
-    const data = await res.json();
-    if (!data.tag_name) {
-      throw new Error("GitHub Release 缺少版本号");
-    }
-
-    const latestVersion = data.tag_name.replace(/^v/, '');
-    const releaseUrl = data.html_url || LATEST_RELEASE_URL;
+    const { latestVersion, releaseUrl } = await fetchLatestReleaseInfo({ force });
     const hasUpdate = compareVersions(latestVersion, currentVersion) > 0;
 
     if (hasUpdate) {
@@ -92,6 +81,38 @@ export async function checkUpdates(options = {}) {
     }
     return result;
   }
+}
+
+async function fetchLatestReleaseInfo({ force = false } = {}) {
+  const errors = [];
+
+  for (const baseUrl of UPDATE_MANIFEST_URLS) {
+    const url = force ? appendCacheBuster(baseUrl) : baseUrl;
+    try {
+      const res = await fetch(url, {
+        cache: force ? "no-store" : "default",
+        headers: { Accept: "application/json" }
+      });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      const latestVersion = normalizeVersion(data.version || data.latestVersion || data.tag_name);
+      if (!latestVersion) {
+        throw new Error("缺少版本号");
+      }
+
+      return {
+        latestVersion,
+        releaseUrl: data.releaseUrl || data.html_url || `https://github.com/${GITHUB_REPO}/releases/tag/v${latestVersion}`
+      };
+    } catch (err) {
+      errors.push(`${sourceLabel(baseUrl)} ${err.message || err}`);
+    }
+  }
+
+  throw new Error(`更新清单获取失败：${errors.join("；") || "所有来源均不可用"}`);
 }
 
 function readUpdateCheckCache(currentVersion) {
@@ -143,28 +164,26 @@ function openReleaseUrl(url) {
   fallback();
 }
 
-async function describeReleaseFetchError(res) {
-  let apiMessage = "";
+function appendCacheBuster(url) {
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}t=${Date.now()}`;
+}
+
+function sourceLabel(url) {
   try {
-    const data = await res.json();
-    apiMessage = data?.message || "";
+    return new URL(url).hostname;
   } catch {
-    // ignore non-json error responses
+    return "更新源";
   }
+}
 
-  const rateLimitRemaining = res.headers?.get?.("x-ratelimit-remaining");
-  if (res.status === 403 && rateLimitRemaining === "0") {
-    return "GitHub 匿名 API 已限流，请稍后再试";
-  }
-
-  return apiMessage
-    ? `GitHub Release 查询失败（HTTP ${res.status}）：${apiMessage}`
-    : `GitHub Release 查询失败（HTTP ${res.status}）`;
+function normalizeVersion(version) {
+  return String(version || "").trim().replace(/^v/i, "");
 }
 
 function compareVersions(v1, v2) {
-  const parts1 = v1.split('.').map(Number);
-  const parts2 = v2.split('.').map(Number);
+  const parts1 = normalizeVersion(v1).split(/[.+-]/).map((part) => Number.parseInt(part, 10) || 0);
+  const parts2 = normalizeVersion(v2).split(/[.+-]/).map((part) => Number.parseInt(part, 10) || 0);
   for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
     const p1 = parts1[i] || 0;
     const p2 = parts2[i] || 0;

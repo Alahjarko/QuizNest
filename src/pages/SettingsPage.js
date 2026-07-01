@@ -234,7 +234,7 @@ export async function renderSettingsPage(container, app) {
         <div>
           <p class="eyebrow">应用更新</p>
           <h2>版本更新</h2>
-          <p>手动检查 GitHub Release，发现新版本时会提示前往下载。自动检查仍会在启动后静默运行。</p>
+          <p>通过静态更新清单检查最新版本，发现新版本时会提示前往下载。自动检查仍会在启动后静默运行。</p>
         </div>
       </div>
       <div class="backup-actions">
@@ -363,7 +363,7 @@ function bindUpdateActions(container) {
     const oldText = button.textContent;
     button.disabled = true;
     button.textContent = "检查中...";
-    if (statusBox) statusBox.textContent = "正在检查 GitHub 最新 Release...";
+    if (statusBox) statusBox.textContent = "正在读取更新清单...";
 
     try {
       const result = await checkUpdates({ silent: false, force: true });

@@ -13,6 +13,27 @@ val tauriProperties = Properties().apply {
     }
 }
 
+val tauriConfigVersion = file("../../../tauri.conf.json")
+    .takeIf { it.exists() }
+    ?.readText()
+    ?.let { Regex("\"version\"\\s*:\\s*\"([^\"]+)\"").find(it)?.groupValues?.get(1) }
+
+val resolvedVersionName = tauriConfigVersion
+    ?: tauriProperties.getProperty("tauri.android.versionName")
+    ?: "1.0"
+
+fun androidVersionCodeFrom(versionName: String): Int {
+    val parts = versionName
+        .substringBefore("-")
+        .substringBefore("+")
+        .split(".")
+        .map { it.toIntOrNull() ?: 0 }
+    val major = parts.getOrElse(0) { 0 }
+    val minor = parts.getOrElse(1) { 0 }
+    val patch = parts.getOrElse(2) { 0 }
+    return (major * 1_000_000 + minor * 1_000 + patch).coerceAtLeast(1)
+}
+
 android {
     compileSdk = 36
     namespace = "com.quiznest.app"
@@ -21,8 +42,8 @@ android {
         applicationId = "com.quiznest.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
-        versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
+        versionCode = androidVersionCodeFrom(resolvedVersionName)
+        versionName = resolvedVersionName
     }
     buildTypes {
         getByName("debug") {
