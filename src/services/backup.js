@@ -1,4 +1,5 @@
 import { getAll, getSettings, putMany } from "./storage/db.js";
+import { AI_CONFIG_ROLE_KEYS, mergeSettingsForSync, resolveAiConfigUpdatedAt } from "./settingsSync.js";
 
 const BACKUP_KIND = "quiznest.learning-backup";
 const BACKUP_VERSION = 2;
@@ -9,7 +10,7 @@ const SETTINGS_LOCAL_ONLY_FIELDS = [
   "homeHeroImageDataUrl",
   "homeHeroImageName"
 ];
-const ROLE_CONFIG_KEYS = ["questionConfig", "noteConfig", "gradingConfig", "chatConfig"];
+const ROLE_CONFIG_KEYS = AI_CONFIG_ROLE_KEYS;
 
 export const BACKUP_STORES = [
   "profile",
@@ -81,6 +82,10 @@ export function mergeSyncData(localStores, remoteStores) {
         mergedMap.set(id, remoteItem);
       } else {
         const localItem = mergedMap.get(id);
+        if (storeName === "settings") {
+          mergedMap.set(id, mergeSettingsForSync(localItem, remoteItem));
+          continue;
+        }
         const localTime = localItem.updatedAt || localItem.createdAt || "";
         const remoteTime = remoteItem.updatedAt || remoteItem.createdAt || "";
         
@@ -88,35 +93,26 @@ export function mergeSyncData(localStores, remoteStores) {
           mergedMap.set(id, remoteItem);
         }
         
-        if (storeName === "settings") {
-          const winner = mergedMap.get(id);
-          if (winner === remoteItem) {
-            winner.homeHeroImageDataUrl = localItem.homeHeroImageDataUrl || "";
-            winner.homeHeroImageName = localItem.homeHeroImageName || "";
-            
-            // Protect local API keys so they are not wiped by remote
-            winner.apiKey = localItem.apiKey || "";
-            winner.commonApiKey = localItem.commonApiKey || "";
-            if (winner.questionConfig && localItem.questionConfig) winner.questionConfig.apiKey = localItem.questionConfig.apiKey || "";
-            if (winner.noteConfig && localItem.noteConfig) winner.noteConfig.apiKey = localItem.noteConfig.apiKey || "";
-            if (winner.gradingConfig && localItem.gradingConfig) winner.gradingConfig.apiKey = localItem.gradingConfig.apiKey || "";
-            if (winner.chatConfig && localItem.chatConfig) winner.chatConfig.apiKey = localItem.chatConfig.apiKey || "";
-
-            // Protect WebDAV password
-            winner.webdavPassword = localItem.webdavPassword || "";
-          }
-        }
       }
     }
     const mergedRows = Array.from(mergedMap.values());
-    mergedStores[storeName] = storeName === "answers" ? mergedRows.map(sanitizeAnswerForBackup) : mergedRows;
+    if (storeName === "settings") {
+      mergedStores[storeName] = mergedRows.map(sanitizeSettingsForBackup);
+    } else if (storeName === "answers") {
+      mergedStores[storeName] = mergedRows.map(sanitizeAnswerForBackup);
+    } else {
+      mergedStores[storeName] = mergedRows;
+    }
   }
   
   return mergedStores;
 }
 
 export function sanitizeSettingsForBackup(settings) {
-  const sanitized = { ...settings };
+  const sanitized = {
+    ...settings,
+    aiConfigUpdatedAt: resolveAiConfigUpdatedAt(settings)
+  };
   for (const field of SETTINGS_LOCAL_ONLY_FIELDS) {
     sanitized[field] = "";
   }

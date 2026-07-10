@@ -1,3 +1,5 @@
+import { withAiConfigUpdatedAt } from "../settingsSync.js";
+
 const DB_NAME = "ai-study-assistant-db";
 const DB_VERSION = 8;
 const SETTINGS_ID = "default";
@@ -220,10 +222,13 @@ export async function getByIndex(storeName, indexName, value, includeDeleted = f
 }
 
 export async function saveSettings(settings) {
+  const existingSettings = (await get("settings", SETTINGS_ID)) || {};
+  const now = new Date().toISOString();
+  const settingsWithMetadata = withAiConfigUpdatedAt(settings, existingSettings, now);
   return put("settings", {
     id: SETTINGS_ID,
-    ...settings,
-    updatedAt: new Date().toISOString()
+    ...settingsWithMetadata,
+    updatedAt: now
   });
 }
 
