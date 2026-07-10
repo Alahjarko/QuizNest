@@ -16,6 +16,7 @@ import { markCheckIn, recordPracticeAnswer } from "../services/studyTracker.js";
 import { readImageFile } from "../utils/file.js";
 import { formatDateTime, nowIso } from "../utils/ids.js";
 import { escapeHtml } from "../utils/markdown.js";
+import { reviveAnswerForRetry } from "../utils/practice.js";
 
 const LABELS = ["A", "B", "C", "D"];
 const subjectiveGradingTasks = new Map();
@@ -529,7 +530,7 @@ function bindSubjectiveEvents(container, app, note, set, question, answer, quest
   textarea?.addEventListener("input", () => {
     window.clearTimeout(saveTimer);
     saveTimer = window.setTimeout(async () => {
-      const latest = (await get("answers", question.id)) || baseSubjectiveAnswer(question);
+      const latest = reviveAnswerForRetry(await get("answers", question.id), baseSubjectiveAnswer(question));
       await put("answers", {
         ...latest,
         textAnswer: textarea.value,
@@ -562,7 +563,7 @@ function bindSubjectiveEvents(container, app, note, set, question, answer, quest
   container.querySelector("[data-submit-subjective]")?.addEventListener("click", async () => {
     const button = container.querySelector("[data-submit-subjective]");
     const latest = {
-      ...((await get("answers", question.id)) || baseSubjectiveAnswer(question)),
+      ...reviveAnswerForRetry(await get("answers", question.id), baseSubjectiveAnswer(question)),
       textAnswer: textarea?.value || ""
     };
 

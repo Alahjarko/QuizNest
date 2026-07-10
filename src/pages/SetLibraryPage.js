@@ -180,7 +180,7 @@ function renderSetCard(summary) {
         <div class="problem-set-heading">
           <div>
             <p class="problem-set-note">${escapeHtml(summary.noteTitle)}</p>
-            <h2>${escapeHtml(summary.title)}</h2>
+            <h2><a class="problem-set-title-link" href="#/practice/${escapeHtml(summary.id)}" title="进入题组，不会清空当前进度">${escapeHtml(summary.title)}</a></h2>
           </div>
           <span class="status-pill ${statusKey}">${statusLabel}</span>
         </div>

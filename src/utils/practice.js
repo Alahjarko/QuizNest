@@ -2,6 +2,12 @@ export function buildAnswerMap(answers) {
   return new Map((answers || []).map((answer) => [answer.questionId, answer]));
 }
 
+export function reviveAnswerForRetry(answer, freshAnswer) {
+  if (!answer) return { ...freshAnswer };
+  if (!answer.deletedAt) return answer;
+  return { ...freshAnswer };
+}
+
 export function getSetLastPracticeAt(set, answers = []) {
   const answerTimes = answers
     .map((answer) => answer.submittedAt || answer.updatedAt)

@@ -4923,6 +4923,27 @@ textarea {
   -webkit-line-clamp: 2;
 }
 
+.problem-set-title-link {
+  color: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  transition: color 160ms ease, text-decoration-color 160ms ease;
+}
+
+.problem-set-title-link:hover {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent) 42%, transparent);
+}
+
+.problem-set-title-link:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid color-mix(in srgb, var(--accent) 52%, transparent);
+  outline-offset: 3px;
+}
+
 .problem-set-note {
   margin: 0;
   overflow: hidden;
